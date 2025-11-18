@@ -52,8 +52,6 @@ const filterUniqueLocations = (locations: LocationPoint[]): LocationPoint[] => {
 
 
 export default function RealTimeMap({ locationHistory }: RealTimeMapProps) {
-  const mapRef = useRef<L.Map | null>(null);
-  
   const { positions, bounds, lastPosition } = useMemo(() => {
     const uniqueLocations = filterUniqueLocations(locationHistory);
     
@@ -64,15 +62,6 @@ export default function RealTimeMap({ locationHistory }: RealTimeMapProps) {
     return { positions: pos, bounds: bds, lastPosition: lastPos };
   }, [locationHistory]);
   
-  // Cleanup function to remove map instance
-  useEffect(() => {
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, []);
   
   if (!lastPosition || !bounds) {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Aguardando dados de localização...</div>;
@@ -85,9 +74,6 @@ export default function RealTimeMap({ locationHistory }: RealTimeMapProps) {
       zoom={15} 
       style={{ height: '100%', width: '100%' }} 
       className="rounded-md z-0"
-      whenCreated={(map) => {
-        mapRef.current = map;
-      }}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
