@@ -45,8 +45,13 @@ const vehicleSchema = z.object({
   sectorId: z.string().min(1, 'Selecione um setor'),
   vehicleId: z.string().min(1, 'ID do Veículo (placa) é obrigatório'),
   model: z.string().min(1, 'Modelo é obrigatório'),
-  imageUrl: z.string().url('URL da imagem inválida').optional(),
+  isTruck: z.boolean().default(false),
+  imageUrl: z.string().optional(),
+}).refine(data => data.isTruck || (data.imageUrl && data.imageUrl.length > 0), {
+  message: 'URL da imagem é obrigatória para veículos que não são caminhões',
+  path: ['imageUrl'],
 });
+
 
 const userSchema = z.object({
   companyId: z.string().min(1, 'Selecione uma empresa'),
@@ -80,6 +85,7 @@ const defaultVehicleValues = {
   vehicleId: '',
   model: '',
   imageUrl: '',
+  isTruck: false,
 };
 
 export default function AdminPage() {
@@ -98,6 +104,7 @@ export default function AdminPage() {
 
   const selectedCompanyUserForm = userForm.watch('companyId');
   const selectedCompanyVehicleForm = vehicleForm.watch('companyId');
+  const isVehicleTruck = vehicleForm.watch('isTruck');
 
   const fetchCompanies = async () => {
     if (!firestore) return;
@@ -185,7 +192,11 @@ export default function AdminPage() {
     await handleSubmission('veículo', async () => {
       if (!firestore) throw new Error('Firestore não disponível');
       const vehicleRef = doc(firestore, `companies/${data.companyId}/sectors/${data.sectorId}/vehicles`, data.vehicleId);
-      await setDoc(vehicleRef, { model: data.model, imageUrl: data.imageUrl || '' });
+      await setDoc(vehicleRef, { 
+        model: data.model, 
+        isTruck: data.isTruck,
+        imageUrl: data.isTruck ? '' : data.imageUrl || '' 
+      });
       toast({ title: 'Sucesso', description: 'Veículo cadastrado!' });
       vehicleForm.reset(defaultVehicleValues);
     });
@@ -331,8 +342,27 @@ export default function AdminPage() {
               <Input {...vehicleForm.register('model')} placeholder="Modelo do Veículo" />
               {vehicleForm.formState.errors.model && <p className="text-sm text-destructive">{vehicleForm.formState.errors.model.message}</p>}
 
-              <Input {...vehicleForm.register('imageUrl')} placeholder="URL da Imagem do Veículo" />
-              {vehicleForm.formState.errors.imageUrl && <p className="text-sm text-destructive">{vehicleForm.formState.errors.imageUrl.message}</p>}
+              <div className="flex items-center space-x-2">
+                <Controller
+                    name="isTruck"
+                    control={vehicleForm.control}
+                    render={({ field }) => (
+                        <Switch
+                            id="isTruck"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                    )}
+                />
+                <Label htmlFor="isTruck">É caminhão?</Label>
+              </div>
+
+              {!isVehicleTruck && (
+                <div>
+                    <Input {...vehicleForm.register('imageUrl')} placeholder="URL da Imagem do Veículo" />
+                    {vehicleForm.formState.errors.imageUrl && <p className="text-sm text-destructive">{vehicleForm.formState.errors.imageUrl.message}</p>}
+                </div>
+              )}
 
               <Button type="submit" disabled={isSubmitting['veículo']}>
                 {renderLoading('veículo')} Cadastrar Veículo
@@ -416,3 +446,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    
