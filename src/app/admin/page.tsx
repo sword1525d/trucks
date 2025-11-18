@@ -65,6 +65,23 @@ type UserFormValues = z.infer<typeof userSchema>;
 type Company = { id: string; name: string };
 type Sector = { id: string; name: string };
 
+const defaultUserValues = {
+  companyId: '',
+  sectorId: '',
+  userName: '',
+  userMatricula: '',
+  userPassword: '',
+  isTruckDriver: false,
+};
+
+const defaultVehicleValues = {
+  companyId: '',
+  sectorId: '',
+  vehicleId: '',
+  model: '',
+  imageUrl: '',
+};
+
 export default function AdminPage() {
   const { firestore, auth } = useFirebase();
   const { toast } = useToast();
@@ -76,8 +93,8 @@ export default function AdminPage() {
 
   const companyForm = useForm<CompanyFormValues>({ resolver: zodResolver(companySchema) });
   const sectorForm = useForm<SectorFormValues>({ resolver: zodResolver(sectorSchema) });
-  const vehicleForm = useForm<VehicleFormValues>({ resolver: zodResolver(vehicleSchema) });
-  const userForm = useForm<UserFormValues>({ resolver: zodResolver(userSchema) });
+  const vehicleForm = useForm<VehicleFormValues>({ resolver: zodResolver(vehicleSchema), defaultValues: defaultVehicleValues });
+  const userForm = useForm<UserFormValues>({ resolver: zodResolver(userSchema), defaultValues: defaultUserValues });
 
   const selectedCompanyUserForm = userForm.watch('companyId');
   const selectedCompanyVehicleForm = vehicleForm.watch('companyId');
@@ -102,9 +119,9 @@ export default function AdminPage() {
   }, [firestore]);
 
   const fetchSectors = async (companyId: string | undefined, setSectorsCallback: (sectors: Sector[]) => void, resetSectorId: () => void) => {
+    setSectorsCallback([]); // Sempre limpa os setores antes de buscar novos
+    resetSectorId();
     if (!firestore || !companyId) {
-      setSectorsCallback([]);
-      resetSectorId();
       return;
     }
     try {
@@ -170,7 +187,7 @@ export default function AdminPage() {
       const vehicleRef = doc(firestore, `companies/${data.companyId}/sectors/${data.sectorId}/vehicles`, data.vehicleId);
       await setDoc(vehicleRef, { model: data.model, imageUrl: data.imageUrl || '' });
       toast({ title: 'Sucesso', description: 'Veículo cadastrado!' });
-      vehicleForm.reset();
+      vehicleForm.reset(defaultVehicleValues);
     });
   };
 
@@ -198,7 +215,7 @@ export default function AdminPage() {
         });
 
         toast({ title: 'Sucesso', description: 'Usuário cadastrado com sucesso!' });
-        userForm.reset();
+        userForm.reset(defaultUserValues);
     });
 };
 
@@ -280,7 +297,7 @@ export default function AdminPage() {
                 name="companyId"
                 control={vehicleForm.control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingCompanies}>
+                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCompanies}>
                     <SelectTrigger>
                       <SelectValue placeholder={isLoadingCompanies ? "Carregando..." : "Selecione a Empresa"} />
                     </SelectTrigger>
@@ -296,7 +313,7 @@ export default function AdminPage() {
                 name="sectorId"
                 control={vehicleForm.control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompanyVehicleForm || sectorsVehicle.length === 0}>
+                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={!selectedCompanyVehicleForm || sectorsVehicle.length === 0}>
                     <SelectTrigger>
                       <SelectValue placeholder={!selectedCompanyVehicleForm ? "Selecione uma empresa primeiro" : "Selecione o Setor"} />
                     </SelectTrigger>
@@ -336,7 +353,7 @@ export default function AdminPage() {
                 name="companyId"
                 control={userForm.control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingCompanies}>
+                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCompanies}>
                     <SelectTrigger>
                       <SelectValue placeholder={isLoadingCompanies ? "Carregando..." : "Selecione a Empresa"} />
                     </SelectTrigger>
@@ -352,7 +369,7 @@ export default function AdminPage() {
                 name="sectorId"
                 control={userForm.control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompanyUserForm || sectorsUser.length === 0}>
+                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={!selectedCompanyUserForm || sectorsUser.length === 0}>
                     <SelectTrigger>
                       <SelectValue placeholder={!selectedCompanyUserForm ? "Selecione uma empresa primeiro" : "Selecione o Setor"} />
                     </SelectTrigger>
