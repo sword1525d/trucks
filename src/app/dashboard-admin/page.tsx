@@ -194,7 +194,7 @@ const AdminDashboardPage = () => {
             const runs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
             // Ordena os resultados no cliente
             return runs.sort((a, b) => (b.endTime?.seconds || 0) - (a.endTime?.seconds || 0));
-        } catch (error: any) {
+        } catch (error) {
             console.error("Error fetching completed runs: ", error);
             toast({ variant: 'destructive', title: 'Erro ao buscar histórico', description: 'Não foi possível carregar o histórico. Tente recarregar a página.' });
             return [];

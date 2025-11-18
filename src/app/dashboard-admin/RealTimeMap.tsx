@@ -1,32 +1,26 @@
-// src/app/dashboard-admin/RealTimeMap.tsx
 'use client';
-import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import { useState, useEffect, useRef } from 'react';
+import Map, { Marker, Source, Layer, MapRef, LngLatBounds } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { type LocationPoint } from './page';
-import { useEffect } from 'react';
+import { Truck } from 'lucide-react';
+import type { LineLayer } from 'react-map-gl';
 
-// Corrige o problema do ícone padrão do Leaflet com o Webpack
-const truckIcon = new L.Icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-
-// Componente para ajustar o mapa para caber todos os pontos
-const FitBounds = ({ points }: { points: [number, number][] }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (points && points.length > 0) {
-      map.fitBounds(points);
-    }
-  }, [points, map]);
-  return null;
+// Estilo da linha do trajeto
+const routeLayerStyle: LineLayer = {
+  id: 'route',
+  type: 'line',
+  source: 'route',
+  layout: {
+    'line-join': 'round',
+    'line-cap': 'round',
+  },
+  paint: {
+    'line-color': '#2563eb', // Um azul forte
+    'line-width': 5,
+  },
 };
 
 interface RealTimeMapProps {
@@ -34,32 +28,85 @@ interface RealTimeMapProps {
 }
 
 const RealTimeMap = ({ locationHistory }: RealTimeMapProps) => {
-  if (!locationHistory || locationHistory.length === 0) {
+  const mapRef = useRef<MapRef>(null);
+
+  if (!MAPBOX_TOKEN) {
     return (
-        <div className="flex items-center justify-center h-full bg-muted rounded-lg">
-            <p className="text-muted-foreground">Sem dados de localização para exibir.</p>
-        </div>
+      <div className="flex items-center justify-center h-full bg-destructive/10 rounded-lg p-4">
+        <p className="text-destructive text-center font-medium">
+          A chave de acesso do Mapbox não foi configurada. Por favor, adicione seu token ao arquivo .env.local.
+        </p>
+      </div>
     );
   }
 
-  const polyline: [number, number][] = locationHistory.map(p => [p.latitude, p.longitude]);
-  const lastPosition = polyline[polyline.length - 1];
+  if (!locationHistory || locationHistory.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full bg-muted rounded-lg">
+        <p className="text-muted-foreground">Sem dados de localização para exibir.</p>
+      </div>
+    );
+  }
+
+  // Transforma o histórico de localização em um formato GeoJSON para a linha
+  const routeGeoJSON = {
+    type: 'Feature' as const,
+    properties: {},
+    geometry: {
+      type: 'LineString' as const,
+      coordinates: locationHistory.map(p => [p.longitude, p.latitude]),
+    },
+  };
+
+  const lastPosition = locationHistory[locationHistory.length - 1];
+
+  // Efeito para ajustar a visualização do mapa quando o histórico de localização muda
+  useEffect(() => {
+    if (mapRef.current && locationHistory.length > 1) {
+      const coordinates = routeGeoJSON.geometry.coordinates;
+      const bounds = new LngLatBounds(
+        coordinates[0],
+        coordinates[0]
+      );
+      for (const coord of coordinates) {
+        bounds.extend(coord);
+      }
+      mapRef.current.fitBounds(bounds, {
+        padding: 60, // Aumenta o padding para melhor visualização
+        duration: 1000,
+      });
+    }
+  }, [locationHistory, routeGeoJSON.geometry.coordinates]);
+
 
   return (
-    <MapContainer
-      center={lastPosition}
-      zoom={16}
-      scrollWheelZoom={true}
-      style={{ height: '100%', width: '100%', borderRadius: '0.5rem' }}
+    <Map
+      ref={mapRef}
+      initialViewState={{
+        longitude: lastPosition.longitude,
+        latitude: lastPosition.latitude,
+        zoom: 15,
+      }}
+      style={{ width: '100%', height: '100%', borderRadius: '0.5rem' }}
+      mapStyle="mapbox://styles/mapbox/streets-v12"
+      mapboxAccessToken={MAPBOX_TOKEN}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <Polyline positions={polyline} color="blue" />
-      <Marker position={lastPosition} icon={truckIcon} />
-      <FitBounds points={polyline} />
-    </MapContainer>
+      {/* Fonte de dados para a rota */}
+      <Source id="route" type="geojson" data={routeGeoJSON}>
+        <Layer {...routeLayerStyle} />
+      </Source>
+      
+      {/* Marcador para a posição atual */}
+      <Marker
+        longitude={lastPosition.longitude}
+        latitude={lastPosition.latitude}
+        anchor="bottom"
+      >
+        <div className="bg-primary rounded-full p-2 shadow-lg">
+            <Truck className="h-5 w-5 text-primary-foreground" />
+        </div>
+      </Marker>
+    </Map>
   );
 };
 
