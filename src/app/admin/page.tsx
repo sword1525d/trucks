@@ -53,7 +53,7 @@ const userSchema = z.object({
   sectorId: z.string().min(1, 'Selecione um setor'),
   userName: z.string().min(1, 'Nome do usuário é obrigatório'),
   userMatricula: z.string().min(1, 'Matrícula é obrigatória'),
-  userPassword: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+  userPassword: z.string().min(1, 'A senha é obrigatória'),
   isTruckDriver: z.boolean().default(false),
 });
 
