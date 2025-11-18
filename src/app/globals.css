@@ -89,15 +89,32 @@
 }
 
 .splash-animation {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 96px; /* 24 * 4 */
+  height: 96px; /* 24 * 4 */
 }
 
-.truck-icon {
-  animation: slideInFromLeft 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-  transform: translateX(-150%);
+.icon-car,
+.icon-truck {
+  position: absolute;
+  animation-duration: 1.5s;
+  animation-fill-mode: forwards;
+  animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.icon-car {
+  animation-name: slideAndFadeOut;
+  opacity: 0;
+}
+
+.icon-truck {
+  animation-name: slideAndFadeIn;
+  transform: translateX(-150%) scale(0.5);
+  opacity: 0;
 }
 
 .app-name {
@@ -105,11 +122,40 @@
   opacity: 0;
 }
 
-@keyframes slideInFromLeft {
-  to {
-    transform: translateX(0);
+@keyframes slideAndFadeIn {
+  0% {
+    transform: translateX(-150%) scale(0.5);
+    opacity: 0;
+  }
+  40% {
+    transform: translateX(-150%) scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
   }
 }
+
+@keyframes slideAndFadeOut {
+  0% {
+    transform: translateX(-150%) scale(1);
+    opacity: 0;
+  }
+  20% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(0) scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0) scale(0.5);
+    opacity: 0;
+  }
+}
+
 
 @keyframes fadeIn {
   to {
