@@ -15,6 +15,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +35,9 @@ import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
+import dynamic from 'next/dynamic';
+
+const RealTimeMap = dynamic(() => import('./RealTimeMap'), { ssr: false });
 
 
 // --- Tipos ---
@@ -47,13 +56,13 @@ type Stop = {
   departureTime: FirebaseTimestamp | null;
 };
 
-type LocationPoint = {
+export type LocationPoint = {
   latitude: number;
   longitude: number;
   timestamp: FirebaseTimestamp;
 };
 
-type Run = {
+export type Run = {
   id: string;
   driverName: string;
   vehicleId: string;
@@ -96,6 +105,8 @@ const AdminDashboardPage = () => {
   const [user, setUser] = useState<UserData | null>(null);
   const [activeRuns, setActiveRuns] = useState<Run[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedRunForMap, setSelectedRunForMap] = useState<Run | null>(null);
+
 
   // Efeito para carregar dados do usuário da sessão
   useEffect(() => {
@@ -128,6 +139,14 @@ const AdminDashboardPage = () => {
     const unsubscribe = onSnapshot(activeRunsQuery, (querySnapshot) => {
       const runs: Run[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
       setActiveRuns(runs.sort((a, b) => a.startTime.seconds - b.startTime.seconds));
+      
+      // Atualiza os dados do mapa se o modal estiver aberto
+      setSelectedRunForMap(currentSelectedRun => {
+        if (!currentSelectedRun) return null;
+        const updatedRun = runs.find(run => run.id === currentSelectedRun.id);
+        return updatedRun || null;
+      });
+
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching active runs: ", error);
@@ -152,7 +171,7 @@ const AdminDashboardPage = () => {
             const runs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
             // Ordena os resultados no cliente
             return runs.sort((a, b) => (b.endTime?.seconds || 0) - (a.endTime?.seconds || 0));
-        } catch (error: any) {
+        } catch (error: any) => {
             console.error("Error fetching completed runs: ", error);
             toast({ variant: 'destructive', title: 'Erro ao buscar histórico', description: 'Não foi possível carregar o histórico. Tente recarregar a página.' });
             return [];
@@ -174,13 +193,27 @@ const AdminDashboardPage = () => {
           <TabsTrigger value="history"><LineChart className="mr-2"/> Histórico e Análise</TabsTrigger>
         </TabsList>
         <TabsContent value="realtime">
-            <RealTimeDashboard activeRuns={activeRuns} isLoading={isLoading} />
+            <RealTimeDashboard activeRuns={activeRuns} isLoading={isLoading} onSelectRun={setSelectedRunForMap} />
         </TabsContent>
         <TabsContent value="history">
-            <HistoryDashboard fetchCompletedRuns={fetchCompletedRuns} />
+            <HistoryDashboard fetchCompletedRuns={fetchCompletedRuns} onSelectRun={setSelectedRunForMap} />
         </TabsContent>
       </Tabs>
       </main>
+
+       {selectedRunForMap && (
+        <Dialog open={!!selectedRunForMap} onOpenChange={(isOpen) => !isOpen && setSelectedRunForMap(null)}>
+          <DialogContent className="max-w-3xl h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Trajeto da Corrida - {selectedRunForMap.driverName}</DialogTitle>
+            </DialogHeader>
+            <div className="h-full w-full">
+              <RealTimeMap locationHistory={selectedRunForMap.locationHistory || []} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
     </div>
   );
 };
@@ -220,7 +253,7 @@ const Header = () => {
 
 
 // --- Componente Aba Tempo Real ---
-const RealTimeDashboard = ({ activeRuns, isLoading }: { activeRuns: Run[], isLoading: boolean }) => {
+const RealTimeDashboard = ({ activeRuns, isLoading, onSelectRun }: { activeRuns: Run[], isLoading: boolean, onSelectRun: (run: Run) => void }) => {
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -237,13 +270,13 @@ const RealTimeDashboard = ({ activeRuns, isLoading }: { activeRuns: Run[], isLoa
   
   return (
       <Accordion type="single" collapsible className="w-full space-y-4 max-w-4xl mx-auto" defaultValue={activeRuns[0]?.id}>
-        {activeRuns.map(run => <RunAccordionItem key={run.id} run={run} />)}
+        {activeRuns.map(run => <RunAccordionItem key={run.id} run={run} onSelectRun={onSelectRun} />)}
       </Accordion>
   );
 };
 
 // --- Componente Item do Acordeão de Corrida ---
-const RunAccordionItem = ({ run }: { run: Run }) => {
+const RunAccordionItem = ({ run, onSelectRun }: { run: Run, onSelectRun: (run: Run) => void }) => {
   const completedStops = run.stops.filter(s => s.status === 'COMPLETED').length;
   const totalStops = run.stops.length;
   const progress = totalStops > 0 ? (completedStops / totalStops) * 100 : 0;
@@ -262,49 +295,6 @@ const RunAccordionItem = ({ run }: { run: Run }) => {
       default: return { icon: Clock, color: 'text-gray-500', label: 'Pendente' };
     }
   };
-
-  const handleViewRealTimeRoute = () => {
-    const locations = run.locationHistory;
-    if (!locations || locations.length < 1) {
-        alert('Ainda não há dados de localização para este trajeto.');
-        return;
-    }
-    
-    // Filter out consecutive duplicate points
-    const uniqueLocations = filterUniqueLocations(locations);
-
-    if (uniqueLocations.length < 1) {
-        alert('Não há dados de localização suficientes para exibir a rota.');
-        return;
-    }
-
-    const lastPoint = uniqueLocations[uniqueLocations.length - 1];
-    
-    // The "waypoints" parameter should be intermediate points.
-    // If there are too many, the URL will be too long. Let's sample them.
-    const MAX_WAYPOINTS = 25;
-    const intermediatePoints = uniqueLocations.slice(0, -1);
-    let waypoints = intermediatePoints;
-
-    if (intermediatePoints.length > MAX_WAYPOINTS) {
-      waypoints = [];
-      const step = Math.ceil(intermediatePoints.length / MAX_WAYPOINTS);
-      for (let i = 0; i < intermediatePoints.length; i += step) {
-        waypoints.push(intermediatePoints[i]);
-      }
-    }
-    
-    const waypointsString = waypoints
-        .map(p => `${p.latitude},${p.longitude}`)
-        .join('|');
-
-    // For a real-time path, we can just show the waypoints and let Google Maps connect them.
-    // The last point acts as the "destination".
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lastPoint.latitude},${lastPoint.longitude}&waypoints=${waypointsString}&travelmode=driving`;
-    
-    window.open(url, 'mapPopup', 'width=800,height=600');
-  };
-
 
   return (
     <AccordionItem value={run.id} className="bg-card border rounded-lg shadow-sm">
@@ -333,7 +323,7 @@ const RunAccordionItem = ({ run }: { run: Run }) => {
         <div className="space-y-2 mt-4">
           <div className="flex justify-between items-center mb-2">
             <h4 className="font-semibold">Pontos da Rota</h4>
-             <Button variant="outline" size="sm" onClick={handleViewRealTimeRoute} disabled={!run.locationHistory || run.locationHistory.length < 1}>
+             <Button variant="outline" size="sm" onClick={() => onSelectRun(run)} disabled={!run.locationHistory || run.locationHistory.length < 1}>
                 <Route className="mr-2 h-4 w-4"/> Ver Trajeto
              </Button>
           </div>
@@ -363,7 +353,7 @@ const RunAccordionItem = ({ run }: { run: Run }) => {
 }
 
 // --- Componente Aba Histórico ---
-const HistoryDashboard = ({ fetchCompletedRuns }: { fetchCompletedRuns: () => Promise<Run[]> }) => {
+const HistoryDashboard = ({ fetchCompletedRuns, onSelectRun }: { fetchCompletedRuns: () => Promise<Run[]>, onSelectRun: (run: Run) => void }) => {
     const [allRuns, setAllRuns] = useState<Run[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [date, setDate] = useState<DateRange | undefined>({
@@ -481,7 +471,7 @@ const HistoryDashboard = ({ fetchCompletedRuns }: { fetchCompletedRuns: () => Pr
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} />) : <TableRow><TableCell colSpan={4} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
+                                    {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} onSelectRun={onSelectRun} />) : <TableRow><TableCell colSpan={4} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
                                 </TableBody>
                             </Table>
                         </div>}
@@ -505,48 +495,8 @@ const KpiCard = ({ title, value }: { title: string, value: string }) => (
     </Card>
 );
 
-const HistoryTableRow = ({ run }: { run: Run }) => {
+const HistoryTableRow = ({ run, onSelectRun }: { run: Run, onSelectRun: (run: Run) => void }) => {
     const duration = run.endTime && run.startTime ? Math.round((run.endTime.seconds - run.startTime.seconds) / 60) : 0;
-    
-    const handleViewRoute = () => {
-        const locations = run.locationHistory;
-        if (!locations || locations.length < 2) {
-            alert('Não há dados de trajeto suficientes para exibir a rota.');
-            return;
-        }
-
-        // Filter out consecutive duplicate points
-        const uniqueLocations = filterUniqueLocations(locations);
-
-        if (uniqueLocations.length < 2) {
-            alert('Não há dados de trajeto suficientes para exibir a rota.');
-            return;
-        }
-
-        const origin = uniqueLocations[0];
-        const destination = uniqueLocations[uniqueLocations.length - 1];
-        
-        // Sample waypoints to avoid overly long URLs
-        const MAX_WAYPOINTS = 25;
-        const intermediatePoints = uniqueLocations.slice(1, -1);
-        let waypoints = intermediatePoints;
-
-        if (intermediatePoints.length > MAX_WAYPOINTS) {
-          waypoints = [];
-          const step = Math.ceil(intermediatePoints.length / MAX_WAYPOINTS);
-          for (let i = 0; i < intermediatePoints.length; i += step) {
-            waypoints.push(intermediatePoints[i]);
-          }
-        }
-
-        const waypointsString = waypoints
-            .map(p => `${p.latitude},${p.longitude}`)
-            .join('|');
-
-        const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&waypoints=${waypointsString}&travelmode=driving`;
-        
-        window.open(url, 'mapPopup', 'width=800,height=600');
-    };
 
     return (
         <TableRow>
@@ -557,7 +507,7 @@ const HistoryTableRow = ({ run }: { run: Run }) => {
             <TableCell>{run.vehicleId}</TableCell>
             <TableCell className="text-right">{duration} min</TableCell>
              <TableCell className="text-right">
-                <Button variant="outline" size="sm" onClick={handleViewRoute} disabled={!run.locationHistory || run.locationHistory.length < 2}>
+                <Button variant="outline" size="sm" onClick={() => onSelectRun(run)} disabled={!run.locationHistory || run.locationHistory.length < 2}>
                   Ver Trajeto
                 </Button>
             </TableCell>
@@ -603,5 +553,3 @@ const DateFilter = ({ date, setDate }: { date: DateRange | undefined, setDate: (
 );
 
 export default AdminDashboardPage;
-
-    
