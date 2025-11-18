@@ -28,13 +28,12 @@ type Vehicle = {
   isTruck: boolean;
   imageUrl?: string;
   status?: 'NO ESTACIONAMENTO' | 'EM CORRIDA' | 'EM ACOMPANHAMENTO';
-  statusClass?: 'no-estacionamento' | 'em-corrida' | 'em-acompanhamento';
   driverName?: string;
 };
 
 // Componente para o Card de Veículo
 const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
-    const getStatusColor = () => {
+    const getStatusColorClass = () => {
         switch (vehicle.status) {
             case 'EM CORRIDA': return 'bg-red-500';
             case 'EM ACOMPANHAMENTO': return 'bg-orange-500';
@@ -44,22 +43,22 @@ const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
         }
     }
 
-    const getCardBgColor = () => {
+    const getCardBgColorClass = () => {
         switch (vehicle.status) {
-            case 'EM CORRida': return 'bg-red-50';
-            case 'EM ACOMPANHAMENTO': return 'bg-orange-50';
+            case 'EM CORRIDA': return 'bg-red-50 border-red-200';
+            case 'EM ACOMPANHAMENTO': return 'bg-orange-50 border-orange-200';
             case 'NO ESTACIONAMENTO':
             default:
-                return 'bg-green-50';
+                return 'bg-green-50 border-green-200';
         }
     }
 
     return (
-        <Card className={`text-center shadow-md ${getCardBgColor()}`}>
+        <Card className={`text-center shadow-md ${getCardBgColorClass()}`}>
             <CardContent className="p-3">
                 <p className="font-bold text-gray-800">{vehicle.id}</p>
                 <p className="text-xs text-gray-600 mb-1">{vehicle.model}</p>
-                <span className={`text-white text-[10px] font-semibold px-2 py-0.5 rounded-full ${getStatusColor()}`}>
+                <span className={`text-white text-[10px] font-semibold px-2 py-0.5 rounded-full ${getStatusColorClass()}`}>
                     {vehicle.status}
                 </span>
                 <div className="w-full h-1.5 bg-gray-200 rounded-full mt-2 overflow-hidden">
@@ -117,7 +116,6 @@ export default function DashboardTruckPage() {
             .map(v => ({
                 ...v,
                 status: 'NO ESTACIONAMENTO',
-                statusClass: 'no-estacionamento',
             }));
 
         setVehicles(vehiclesList);
@@ -153,34 +151,6 @@ export default function DashboardTruckPage() {
     router.push('/dashboard-truck/run');
   };
 
-  const companyStyles = useMemo(() => {
-    if (user?.companyId === 'LSL') {
-      return {
-        bgColor: 'bg-[#0f2954]',
-        textColor: 'text-[#d9eafa]',
-        themeColor: '#0f2954',
-      };
-    }
-    if (user?.companyId === 'HONDA') {
-      return {
-        bgColor: 'bg-[#c62828]',
-        textColor: 'text-white',
-        themeColor: '#c62828',
-      };
-    }
-    // Default
-    return {
-      bgColor: 'bg-primary',
-      textColor: 'text-primary-foreground',
-      themeColor: '#2077053', // Cor HSL primária padrão
-    };
-  }, [user]);
-
-  // Atualiza a cor do tema do navegador
-  useEffect(() => {
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', companyStyles.themeColor);
-  }, [companyStyles]);
-
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -190,20 +160,20 @@ export default function DashboardTruckPage() {
   }
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans ${companyStyles.bgColor}`}>
+    <div className="min-h-screen flex flex-col font-sans bg-background">
         {/* Cabeçalho */}
-        <header className={`p-5 relative shadow-lg ${companyStyles.bgColor} ${companyStyles.textColor}`}>
-            <h1 className="text-3xl font-bold font-headline">FROTACONTROL</h1>
+        <header className="p-5 relative shadow-lg bg-card text-card-foreground border-b">
+            <h1 className="text-3xl font-bold font-headline text-primary">FROTACONTROL</h1>
             <p className="text-sm mt-2">{user.name}</p>
-            <p className="text-xs">{user.matricula}</p>
-            <Truck className="absolute top-5 right-5 w-10 h-10 opacity-50" />
+            <p className="text-xs text-muted-foreground">{user.matricula}</p>
+            <Truck className="absolute top-5 right-5 w-10 h-10 opacity-20 text-primary" />
         </header>
 
         {/* Conteúdo Principal */}
-        <main className="flex-1 bg-gray-100 rounded-t-3xl p-4">
+        <main className="flex-1 bg-gray-100 p-4">
             <section>
                 <h2 className="text-lg font-semibold text-gray-600 mb-3">Status dos Caminhões</h2>
-                <div className="bg-white rounded-xl p-4 shadow-sm">
+                <div className="bg-white rounded-xl p-4 shadow-sm border">
                     {isLoadingVehicles ? (
                         <div className="text-center text-gray-500 flex items-center justify-center p-4">
                             <Loader2 className="w-5 h-5 mr-2 animate-spin"/> Carregando...
@@ -220,7 +190,7 @@ export default function DashboardTruckPage() {
             
             <section className="mt-6">
                 <h2 className="text-lg font-semibold text-gray-600 mb-3">Acompanhamento</h2>
-                <Button className="w-full h-20 text-lg bg-gradient-to-r from-primary to-accent text-white shadow-lg hover:opacity-90" onClick={handleStartRun}>
+                <Button className="w-full h-20 text-lg bg-primary text-primary-foreground shadow-lg hover:bg-primary/90" onClick={handleStartRun}>
                     <PlayCircle className="mr-3"/>
                     Iniciar/Acompanhar
                 </Button>

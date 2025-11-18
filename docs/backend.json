@@ -126,6 +126,39 @@
         "sectorId",
         "model"
       ]
+    },
+    "Run": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Run",
+      "type": "object",
+      "description": "Represents a truck run or trip.",
+      "properties": {
+        "driverId": { "type": "string" },
+        "driverName": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "startMileage": { "type": "number" },
+        "endMileage": { "type": "number" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["IN_PROGRESS", "COMPLETED"] },
+        "stops": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "status": { "type": "string", "enum": ["PENDING", "COMPLETED"] },
+              "arrivalTime": { "type": "string", "format": "date-time" },
+              "departureTime": { "type": "string", "format": "date-time" },
+              "collectedCars": { "type": "number" },
+              "collectedItems": { "type": "number" },
+              "mileageAtStop": { "type": "number" }
+            },
+            "required": ["name", "status"]
+          }
+        }
+      },
+      "required": ["driverId", "driverName", "vehicleId", "startMileage", "startTime", "status", "stops"]
     }
   },
   "auth": {
@@ -140,84 +173,40 @@
         "path": "/companies/{companyId}",
         "definition": {
           "entityName": "Company",
-          "schema": {
-            "$ref": "#/backend/entities/Company"
-          },
-          "description": "Stores company information.",
-          "params": [
-            {
-              "name": "companyId",
-              "description": "Unique identifier for the company."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Company" },
+          "description": "Stores company information."
         }
       },
       {
         "path": "/companies/{companyId}/sectors/{sectorId}",
         "definition": {
           "entityName": "Sector",
-          "schema": {
-            "$ref": "#/backend/entities/Sector"
-          },
-          "description": "Stores sector information within a company.",
-          "params": [
-            {
-              "name": "companyId",
-              "description": "Unique identifier for the company."
-            },
-            {
-              "name": "sectorId",
-              "description": "Unique identifier for the sector."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Sector" },
+          "description": "Stores sector information within a company."
         }
       },
       {
         "path": "/companies/{companyId}/sectors/{sectorId}/users/{userId}",
         "definition": {
           "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user information within a company and sector, keyed by matricula (userId).",
-          "params": [
-            {
-              "name": "companyId",
-              "description": "Unique identifier for the company."
-            },
-            {
-              "name": "sectorId",
-              "description": "Unique identifier for the sector."
-            },
-            {
-              "name": "userId",
-              "description": "Unique identifier for the user (matricula)."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/User" },
+          "description": "Stores user information within a company and sector."
         }
       },
       {
         "path": "/companies/{companyId}/sectors/{sectorId}/vehicles/{vehicleId}",
         "definition": {
           "entityName": "Vehicle",
-          "schema": {
-            "$ref": "#/backend/entities/Vehicle"
-          },
-          "description": "Stores vehicle information within a company and sector.",
-          "params": [
-            {
-              "name": "companyId",
-              "description": "Unique identifier for the company."
-            },
-            {
-              "name": "sectorId",
-              "description": "Unique identifier for the sector."
-            },
-            {
-              "name": "vehicleId",
-              "description": "Unique identifier for the vehicle."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Vehicle" },
+          "description": "Stores vehicle information within a company and sector."
+        }
+      },
+       {
+        "path": "/companies/{companyId}/sectors/{sectorId}/runs/{runId}",
+        "definition": {
+          "entityName": "Run",
+          "schema": { "$ref": "#/backend/entities/Run" },
+          "description": "Stores truck run data within a company and sector."
         }
       }
     ],
