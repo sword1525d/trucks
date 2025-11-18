@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
-import { collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,26 +45,26 @@ const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
 
     const getCardBgColorClass = () => {
         switch (vehicle.status) {
-            case 'EM CORRIDA': return 'bg-red-50 border-red-200';
-            case 'EM ACOMPANHAMENTO': return 'bg-orange-50 border-orange-200';
+            case 'EM CORRIDA': return 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800';
+            case 'EM ACOMPANHAMENTO': return 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800';
             case 'NO ESTACIONAMENTO':
             default:
-                return 'bg-green-50 border-green-200';
+                return 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800';
         }
     }
 
     return (
         <Card className={`text-center shadow-md ${getCardBgColorClass()}`}>
             <CardContent className="p-3">
-                <p className="font-bold text-gray-800">{vehicle.id}</p>
-                <p className="text-xs text-gray-600 mb-1">{vehicle.model}</p>
+                <p className="font-bold text-card-foreground">{vehicle.id}</p>
+                <p className="text-xs text-muted-foreground mb-1">{vehicle.model}</p>
                 <span className={`text-white text-[10px] font-semibold px-2 py-0.5 rounded-full ${getStatusColorClass()}`}>
                     {vehicle.status}
                 </span>
-                <div className="w-full h-1.5 bg-gray-200 rounded-full mt-2 overflow-hidden">
+                <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-2 overflow-hidden">
                     <div className="h-full bg-green-500 rounded-full" style={{ width: '100%' }}></div>
                 </div>
-                {vehicle.driverName && <p className="text-xs text-gray-500 mt-1 italic">{vehicle.driverName}</p>}
+                {vehicle.driverName && <p className="text-xs text-muted-foreground mt-1 italic">{vehicle.driverName}</p>}
             </CardContent>
         </Card>
     )
@@ -184,57 +184,57 @@ export default function DashboardTruckPage() {
 
   if (!user || isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-background">
-        {/* Cabeçalho */}
-        <header className="p-5 relative shadow-lg bg-card text-card-foreground border-b">
-            <h1 className="text-3xl font-bold font-headline text-primary">FROTACONTROL</h1>
-            <p className="text-sm mt-2">{user.name}</p>
-            <p className="text-xs text-muted-foreground">{user.matricula}</p>
-            <Truck className="absolute top-5 right-5 w-10 h-10 opacity-20 text-primary" />
-        </header>
+    <div className="min-h-screen flex flex-col bg-background">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 container mx-auto max-w-4xl">
+        <div className="flex justify-between items-start mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Truck className="h-8 w-8 text-primary" />
+                <h1 className="text-3xl font-bold font-headline text-primary">
+                  Frotacontrol
+                </h1>
+              </div>
+              <p className="text-lg font-semibold">{user.name}</p>
+              <p className="text-sm text-muted-foreground">{user.matricula}</p>
+            </div>
+            <Button variant="outline" size="icon" onClick={handleLogout}>
+              <LogOut />
+              <span className="sr-only">Sair</span>
+            </Button>
+        </div>
 
-        {/* Conteúdo Principal */}
-        <main className="flex-1 bg-gray-100 p-4">
-            <section>
-                <h2 className="text-lg font-semibold text-gray-600 mb-3">Status dos Caminhões</h2>
-                <div className="bg-white rounded-xl p-4 shadow-sm border">
-                    {isLoading ? (
-                        <div className="text-center text-gray-500 flex items-center justify-center p-4">
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin"/> Carregando...
-                        </div>
-                    ) : vehicles.length === 0 ? (
-                        <p className="text-center text-gray-500 p-4">Nenhum caminhão encontrado.</p>
-                    ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                           {vehicles.map(v => <VehicleCard key={v.id} vehicle={v} />)}
-                        </div>
-                    )}
-                </div>
-            </section>
-            
-            <section className="mt-6">
-                <h2 className="text-lg font-semibold text-gray-600 mb-3">Acompanhamento</h2>
-                <Button className="w-full h-20 text-lg bg-primary text-primary-foreground shadow-lg hover:bg-primary/90" onClick={handleStartOrContinueRun}>
-                    <PlayCircle className="mr-3"/>
-                    {activeRunId ? 'Continuar Acompanhamento' : 'Iniciar Acompanhamento'}
-                </Button>
-            </section>
-
-            <section className="mt-6">
-                <h2 className="text-lg font-semibold text-gray-600 mb-3">Conta</h2>
-                <Button variant="outline" className="w-full h-16 text-base" onClick={handleLogout}>
-                    <LogOut className="mr-3"/>
-                    Sair
-                </Button>
-            </section>
-        </main>
+        <section className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Acompanhamento</h2>
+            <Button className="w-full h-20 text-lg" onClick={handleStartOrContinueRun}>
+                <PlayCircle className="mr-3"/>
+                {activeRunId ? 'Continuar Acompanhamento' : 'Iniciar Acompanhamento'}
+            </Button>
+        </section>
+        
+        <section>
+            <h2 className="text-xl font-semibold mb-4">Status dos Caminhões</h2>
+            <div className="bg-card rounded-xl p-4 shadow-sm border">
+                {isLoading ? (
+                    <div className="text-center text-muted-foreground flex items-center justify-center p-4">
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin"/> Carregando...
+                    </div>
+                ) : vehicles.length === 0 ? (
+                    <p className="text-center text-muted-foreground p-4">Nenhum caminhão encontrado.</p>
+                ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {vehicles.map(v => <VehicleCard key={v.id} vehicle={v} />)}
+                    </div>
+                )}
+            </div>
+        </section>
+      </main>
     </div>
   );
 }

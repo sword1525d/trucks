@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -149,7 +149,6 @@ export default function TruckRunPage() {
 
       toast({ title: 'Sucesso', description: 'Acompanhamento iniciado! Redirecionando...' });
       
-      // Navigate to the active run page
       router.push(`/dashboard-truck/active-run?id=${docRef.id}`);
 
     } catch(error) {
@@ -169,20 +168,18 @@ export default function TruckRunPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen font-sans bg-gray-50">
-      <header className="p-4 flex items-center justify-between text-foreground bg-card border-b sticky top-0 z-10">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft />
-        </Button>
-        <h1 className="text-lg font-semibold">Iniciar Acompanhamento</h1>
-        <div className="w-8"></div>
-      </header>
-
-      <main className="flex-1 p-4 space-y-6 overflow-y-auto">
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-black">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto container mx-auto max-w-2xl">
         
-        {/* Informações do Veículo */}
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => router.push('/dashboard-truck')}>
+            <ArrowLeft />
+          </Button>
+          <h1 className="text-2xl font-bold">Iniciar Acompanhamento</h1>
+        </div>
+        
         <section>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Informações do Veículo</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Informações do Veículo</h2>
           <div className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="veiculo">Veículo</Label>
@@ -204,9 +201,8 @@ export default function TruckRunPage() {
 
         <Separator />
 
-        {/* Adicionar Pontos */}
         <section>
-           <h2 className="text-xl font-bold text-gray-800 mb-4">Pontos de Parada</h2>
+           <h2 className="text-xl font-semibold text-foreground mb-4">Pontos de Parada</h2>
             <div className="space-y-4">
                 <div className="space-y-1">
                   <Label htmlFor="novo-ponto">Adicionar Ponto</Label>
@@ -223,14 +219,13 @@ export default function TruckRunPage() {
             </div>
         </section>
 
-        {/* Lista de Pontos */}
         {stopPoints.length > 0 && (
           <section>
-            <h3 className="text-lg font-semibold text-gray-700 mb-3">Rota ({stopPoints.length})</h3>
+            <h3 className="text-lg font-semibold text-muted-foreground mb-3">Rota ({stopPoints.length})</h3>
             <ul className="space-y-2">
                 {stopPoints.map((point, index) => (
-                    <li key={index} className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm group border">
-                       <span className="font-medium text-gray-800">{index + 1}. {point}</span>
+                    <li key={index} className="flex items-center justify-between p-3 bg-card rounded-lg shadow-sm group border">
+                       <span className="font-medium text-card-foreground">{index + 1}. {point}</span>
                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMovePoint(index, 'up')} disabled={index === 0}>
                               <ArrowUp className="h-4 w-4"/>
@@ -247,20 +242,20 @@ export default function TruckRunPage() {
             </ul>
           </section>
         )}
-        <div className="h-20"></div>
-
+        <div className="h-24"></div>
       </main>
 
-        {/* Botão para Iniciar Acompanhamento */}
-        <footer className="fixed bottom-0 left-0 right-0 p-4 bg-card border-t">
-          <Button 
-            className="w-full text-lg h-14" 
-            onClick={handleStartRun}
-            disabled={!selectedVehicle || !mileage || stopPoints.length === 0 || isSubmitting}
-          >
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            INICIAR ACOMPANHAMENTO
-          </Button>
+        <footer className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t">
+           <div className="container mx-auto max-w-2xl">
+              <Button 
+                className="w-full text-lg h-14" 
+                onClick={handleStartRun}
+                disabled={!selectedVehicle || !mileage || stopPoints.length === 0 || isSubmitting}
+              >
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                INICIAR ACOMPANHAMENTO
+              </Button>
+           </div>
         </footer>
     </div>
   );

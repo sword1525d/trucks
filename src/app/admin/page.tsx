@@ -24,9 +24,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import Link from 'next/link';
 
 // Schemas
 const companySchema = z.object({
@@ -238,228 +239,245 @@ export default function AdminPage() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-      <h1 className="text-3xl font-bold mb-6">Painel de Cadastro (Temporário)</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Cadastrar Empresa */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cadastrar Nova Empresa</CardTitle>
-            <CardDescription>Adicione uma nova empresa ao sistema.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={companyForm.handleSubmit(onCompanySubmit)} className="space-y-4">
-              <Input {...companyForm.register('companyId')} placeholder="ID da Empresa (Ex: LSL)" />
-              {companyForm.formState.errors.companyId && <p className="text-sm text-destructive">{companyForm.formState.errors.companyId.message}</p>}
-              
-              <Input {...companyForm.register('companyName')} placeholder="Nome da Empresa (Ex: Logística S.A.)" />
-               {companyForm.formState.errors.companyName && <p className="text-sm text-destructive">{companyForm.formState.errors.companyName.message}</p>}
+      <div className="mx-auto max-w-3xl">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold">Painel de Cadastro</h1>
+          <p className="text-muted-foreground">Adicione empresas, setores, veículos e usuários ao sistema.</p>
+          <div className="mt-4 text-center text-sm">
+            <Link href="/login" className="underline underline-offset-4 hover:text-primary">
+              Voltar para o Login
+            </Link>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* Cadastrar Empresa */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Nova Empresa</CardTitle>
+              <CardDescription>Adicione uma nova empresa.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={companyForm.handleSubmit(onCompanySubmit)} className="space-y-4">
+                <Input {...companyForm.register('companyId')} placeholder="ID da Empresa (Ex: LSL)" />
+                {companyForm.formState.errors.companyId && <p className="text-sm text-destructive">{companyForm.formState.errors.companyId.message}</p>}
+                
+                <Input {...companyForm.register('companyName')} placeholder="Nome da Empresa (Ex: Logística S.A.)" />
+                {companyForm.formState.errors.companyName && <p className="text-sm text-destructive">{companyForm.formState.errors.companyName.message}</p>}
 
-              <Button type="submit" disabled={isSubmitting['empresa']}>
-                {renderLoading('empresa')} Cadastrar Empresa
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                <Button type="submit" disabled={isSubmitting['empresa']} className="w-full">
+                  {renderLoading('empresa')} Cadastrar Empresa
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-        {/* Cadastrar Setor */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cadastrar Novo Setor</CardTitle>
-            <CardDescription>Adicione um setor a uma empresa existente.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={sectorForm.handleSubmit(onSectorSubmit)} className="space-y-4">
-              <Controller
-                name="companyId"
-                control={sectorForm.control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCompanies}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={isLoadingCompanies ? "Carregando..." : "Selecione a Empresa"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {sectorForm.formState.errors.companyId && <p className="text-sm text-destructive">{sectorForm.formState.errors.companyId.message}</p>}
-
-              <Input {...sectorForm.register('sectorId')} placeholder="ID do Setor (Ex: MILKRUN)" />
-              {sectorForm.formState.errors.sectorId && <p className="text-sm text-destructive">{sectorForm.formState.errors.sectorId.message}</p>}
-              
-              <Input {...sectorForm.register('sectorName')} placeholder="Nome do Setor (Ex: Milk Run)" />
-              {sectorForm.formState.errors.sectorName && <p className="text-sm text-destructive">{sectorForm.formState.errors.sectorName.message}</p>}
-
-              <Button type="submit" disabled={isSubmitting['setor']}>
-                {renderLoading('setor')} Cadastrar Setor
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Cadastrar Veículo */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cadastrar Novo Veículo</CardTitle>
-            <CardDescription>Adicione um veículo a uma empresa e setor.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={vehicleForm.handleSubmit(onVehicleSubmit)} className="space-y-4">
-               <Controller
-                name="companyId"
-                control={vehicleForm.control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCompanies}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={isLoadingCompanies ? "Carregando..." : "Selecione a Empresa"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {vehicleForm.formState.errors.companyId && <p className="text-sm text-destructive">{vehicleForm.formState.errors.companyId.message}</p>}
-
-              <Controller
-                name="sectorId"
-                control={vehicleForm.control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={!selectedCompanyVehicleForm || sectorsVehicle.length === 0}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={!selectedCompanyVehicleForm ? "Selecione uma empresa primeiro" : "Selecione o Setor"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sectorsVehicle.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {vehicleForm.formState.errors.sectorId && <p className="text-sm text-destructive">{vehicleForm.formState.errors.sectorId.message}</p>}
-
-              <Input {...vehicleForm.register('vehicleId')} placeholder="ID/Placa do Veículo" />
-              {vehicleForm.formState.errors.vehicleId && <p className="text-sm text-destructive">{vehicleForm.formState.errors.vehicleId.message}</p>}
-              
-              <Input {...vehicleForm.register('model')} placeholder="Modelo do Veículo" />
-              {vehicleForm.formState.errors.model && <p className="text-sm text-destructive">{vehicleForm.formState.errors.model.message}</p>}
-
-              <div className="flex items-center space-x-2">
+          {/* Cadastrar Setor */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Novo Setor</CardTitle>
+              <CardDescription>Adicione um setor a uma empresa.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={sectorForm.handleSubmit(onSectorSubmit)} className="space-y-4">
                 <Controller
-                    name="isTruck"
+                  name="companyId"
+                  control={sectorForm.control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCompanies}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={isLoadingCompanies ? "Carregando..." : "Selecione a Empresa"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {sectorForm.formState.errors.companyId && <p className="text-sm text-destructive">{sectorForm.formState.errors.companyId.message}</p>}
+
+                <Input {...sectorForm.register('sectorId')} placeholder="ID do Setor (Ex: MILKRUN)" />
+                {sectorForm.formState.errors.sectorId && <p className="text-sm text-destructive">{sectorForm.formState.errors.sectorId.message}</p>}
+                
+                <Input {...sectorForm.register('sectorName')} placeholder="Nome do Setor (Ex: Milk Run)" />
+                {sectorForm.formState.errors.sectorName && <p className="text-sm text-destructive">{sectorForm.formState.errors.sectorName.message}</p>}
+
+                <Button type="submit" disabled={isSubmitting['setor']} className="w-full">
+                  {renderLoading('setor')} Cadastrar Setor
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Cadastrar Veículo */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Novo Veículo</CardTitle>
+              <CardDescription>Adicione um veículo a uma empresa e setor.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={vehicleForm.handleSubmit(onVehicleSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Controller
+                    name="companyId"
                     control={vehicleForm.control}
                     render={({ field }) => (
-                        <Switch
-                            id="isTruck"
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
+                      <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCompanies}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoadingCompanies ? "Carregando..." : "Selecione a Empresa"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     )}
-                />
-                <Label htmlFor="isTruck">É caminhão?</Label>
-              </div>
-
-              {!isVehicleTruck && (
-                <div>
-                    <Input {...vehicleForm.register('imageUrl')} placeholder="URL da Imagem do Veículo" />
-                    {vehicleForm.formState.errors.imageUrl && <p className="text-sm text-destructive">{vehicleForm.formState.errors.imageUrl.message}</p>}
+                  />
+                  <Controller
+                    name="sectorId"
+                    control={vehicleForm.control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value || ''} disabled={!selectedCompanyVehicleForm || sectorsVehicle.length === 0}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={!selectedCompanyVehicleForm ? "Selecione uma empresa" : "Selecione o Setor"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sectorsVehicle.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </div>
-              )}
+                {vehicleForm.formState.errors.companyId && <p className="text-sm text-destructive">{vehicleForm.formState.errors.companyId.message}</p>}
+                {vehicleForm.formState.errors.sectorId && <p className="text-sm text-destructive -mt-3">{vehicleForm.formState.errors.sectorId.message}</p>}
 
-              <Button type="submit" disabled={isSubmitting['veículo']}>
-                {renderLoading('veículo')} Cadastrar Veículo
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
 
-        {/* Cadastrar Usuário */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cadastrar Novo Usuário</CardTitle>
-            <CardDescription>Adicione um novo usuário a um setor.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={userForm.handleSubmit(onUserSubmit)} className="space-y-4">
-               <Controller
-                name="companyId"
-                control={userForm.control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCompanies}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={isLoadingCompanies ? "Carregando..." : "Selecione a Empresa"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input {...vehicleForm.register('vehicleId')} placeholder="ID/Placa do Veículo" />
+                  <Input {...vehicleForm.register('model')} placeholder="Modelo do Veículo" />
+                </div>
+                {vehicleForm.formState.errors.vehicleId && <p className="text-sm text-destructive">{vehicleForm.formState.errors.vehicleId.message}</p>}
+                {vehicleForm.formState.errors.model && <p className="text-sm text-destructive -mt-3">{vehicleForm.formState.errors.model.message}</p>}
+
+
+                <div className="flex items-center space-x-2 pt-2">
+                  <Controller
+                      name="isTruck"
+                      control={vehicleForm.control}
+                      render={({ field }) => (
+                          <Switch
+                              id="isTruck"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                          />
+                      )}
+                  />
+                  <Label htmlFor="isTruck">É caminhão?</Label>
+                </div>
+
+                {!isVehicleTruck && (
+                  <div>
+                      <Input {...vehicleForm.register('imageUrl')} placeholder="URL da Imagem do Veículo" />
+                      {vehicleForm.formState.errors.imageUrl && <p className="text-sm text-destructive mt-1">{vehicleForm.formState.errors.imageUrl.message}</p>}
+                  </div>
                 )}
-              />
-              {userForm.formState.errors.companyId && <p className="text-sm text-destructive">{userForm.formState.errors.companyId.message}</p>}
 
-              <Controller
-                name="sectorId"
-                control={userForm.control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={!selectedCompanyUserForm || sectorsUser.length === 0}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={!selectedCompanyUserForm ? "Selecione uma empresa primeiro" : "Selecione o Setor"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sectorsUser.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {userForm.formState.errors.sectorId && <p className="text-sm text-destructive">{userForm.formState.errors.sectorId.message}</p>}
+                <Button type="submit" disabled={isSubmitting['veículo']} className="w-full">
+                  {renderLoading('veículo')} Cadastrar Veículo
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-              <Input {...userForm.register('userName')} placeholder="Nome do Usuário" />
-              {userForm.formState.errors.userName && <p className="text-sm text-destructive">{userForm.formState.errors.userName.message}</p>}
-              
-              <Input {...userForm.register('userMatricula')} placeholder="Matrícula do Usuário" />
-              {userForm.formState.errors.userMatricula && <p className="text-sm text-destructive">{userForm.formState.errors.userMatricula.message}</p>}
-
-              <Input type="password" {...userForm.register('userPassword')} placeholder="Senha do Usuário" />
-              {userForm.formState.errors.userPassword && <p className="text-sm text-destructive">{userForm.formState.errors.userPassword.message}</p>}
-              
-              <div className="flex items-center space-x-2">
-                <Controller
-                    name="isTruckDriver"
+          {/* Cadastrar Usuário */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Novo Usuário</CardTitle>
+              <CardDescription>Adicione um novo usuário a um setor.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={userForm.handleSubmit(onUserSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Controller
+                    name="companyId"
                     control={userForm.control}
                     render={({ field }) => (
-                        <Switch
-                            id="isTruckDriver"
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
+                      <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCompanies}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoadingCompanies ? "Carregando..." : "Selecione a Empresa"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     )}
-                />
-                <Label htmlFor="isTruckDriver">É motorista de caminhão (truck)?</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Controller
-                    name="isAdmin"
+                  />
+                  <Controller
+                    name="sectorId"
                     control={userForm.control}
                     render={({ field }) => (
-                        <Switch
-                            id="isAdmin"
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
+                      <Select onValueChange={field.onChange} value={field.value || ''} disabled={!selectedCompanyUserForm || sectorsUser.length === 0}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={!selectedCompanyUserForm ? "Selecione uma empresa" : "Selecione o Setor"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sectorsUser.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     )}
-                />
-                <Label htmlFor="isAdmin">É ADM?</Label>
-              </div>
+                  />
+                </div>
+                 {userForm.formState.errors.companyId && <p className="text-sm text-destructive">{userForm.formState.errors.companyId.message}</p>}
+                 {userForm.formState.errors.sectorId && <p className="text-sm text-destructive -mt-3">{userForm.formState.errors.sectorId.message}</p>}
 
-              <Button type="submit" disabled={isSubmitting['usuário']}>
-                {renderLoading('usuário')} Cadastrar Usuário
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input {...userForm.register('userName')} placeholder="Nome do Usuário" />
+                  <Input {...userForm.register('userMatricula')} placeholder="Matrícula do Usuário" />
+                </div>
+                 {userForm.formState.errors.userName && <p className="text-sm text-destructive">{userForm.formState.errors.userName.message}</p>}
+                 {userForm.formState.errors.userMatricula && <p className="text-sm text-destructive -mt-3">{userForm.formState.errors.userMatricula.message}</p>}
 
+
+                <Input type="password" {...userForm.register('userPassword')} placeholder="Senha do Usuário" />
+                {userForm.formState.errors.userPassword && <p className="text-sm text-destructive">{userForm.formState.errors.userPassword.message}</p>}
+                
+                <div className="flex items-center space-x-2 pt-2">
+                  <Controller
+                      name="isTruckDriver"
+                      control={userForm.control}
+                      render={({ field }) => (
+                          <Switch
+                              id="isTruckDriver"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                          />
+                      )}
+                  />
+                  <Label htmlFor="isTruckDriver">É motorista de caminhão?</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Controller
+                      name="isAdmin"
+                      control={userForm.control}
+                      render={({ field }) => (
+                          <Switch
+                              id="isAdmin"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                          />
+                      )}
+                  />
+                  <Label htmlFor="isAdmin">É Administrador?</Label>
+                </div>
+
+                <Button type="submit" disabled={isSubmitting['usuário']} className="w-full">
+                  {renderLoading('usuário')} Cadastrar Usuário
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+        </div>
       </div>
     </div>
   );
