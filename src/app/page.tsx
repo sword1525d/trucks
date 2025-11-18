@@ -1,15 +1,176 @@
+'use client';
+
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Truck } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Truck, Loader2 } from "lucide-react";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { useToast } from "@/hooks/use-toast";
+import { useFirebase } from '@/firebase';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword } from "firebase/auth";
+
+const loginSchema = z.object({
+  companyId: z.string().min(1, "Selecione uma empresa"),
+  sectorId: z.string().min(1, "Selecione um setor"),
+  email: z.string().email("Email inválido").min(1, "Email é obrigatório"),
+  password: z.string().min(1, "Senha é obrigatória"),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
+type Company = { id: string; name: string };
+type Sector = { id: string; name: string };
 
 export default function Home() {
   const loginImage = PlaceHolderImages.find((p) => p.id === "login-bg");
+  const router = useRouter();
+  const { toast } = useToast();
+  const { firestore, auth } = useFirebase();
 
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingCompanies, setIsFetchingCompanies] = useState(true);
+  const [isFetchingSectors, setIsFetchingSectors] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      companyId: "",
+      sectorId: "",
+      email: "",
+      password: "",
+    },
+  });
+
+  const selectedCompanyId = watch("companyId");
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      setIsFetchingCompanies(true);
+      try {
+        const companiesCol = collection(firestore, 'companies');
+        const companySnapshot = await getDocs(companiesCol);
+        const companyList = companySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Company));
+        setCompanies(companyList);
+      } catch (error) {
+        console.error("Error fetching companies:", error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível carregar as empresas.",
+        });
+      } finally {
+        setIsFetchingCompanies(false);
+      }
+    };
+
+    fetchCompanies();
+  }, [firestore, toast]);
+  
+  useEffect(() => {
+    const fetchSectors = async () => {
+      if (!selectedCompanyId) {
+        setSectors([]);
+        setValue("sectorId", "");
+        return;
+      }
+      setIsFetchingSectors(true);
+      setValue("sectorId", "");
+      try {
+        const sectorsCol = collection(firestore, `companies/${selectedCompanyId}/sectors`);
+        const sectorSnapshot = await getDocs(sectorsCol);
+        const sectorList = sectorSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Sector));
+        setSectors(sectorList);
+      } catch (error) {
+        console.error("Error fetching sectors:", error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível carregar os setores.",
+        });
+      } finally {
+        setIsFetchingSectors(false);
+      }
+    };
+
+    fetchSectors();
+  }, [selectedCompanyId, firestore, setValue, toast]);
+
+
+  const onSubmit = async (data: LoginFormValues) => {
+    setIsLoading(true);
+    try {
+      // The user's email is their matricula + a domain
+      const email = `${data.email}@frotacontrol.com`;
+      const userCredential = await signInWithEmailAndPassword(auth, email, data.password);
+      const user = userCredential.user;
+
+      const userDocRef = doc(firestore, `companies/${data.companyId}/sectors/${data.sectorId}/users`, user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        localStorage.setItem('user', JSON.stringify({ ...userData, id: user.uid }));
+        toast({
+          title: "Sucesso",
+          description: "Login realizado com sucesso!",
+        });
+
+        setTimeout(() => {
+          let redirectUrl = "/dashboard"; 
+          if (data.companyId === "LSL" && data.sectorId === "MILK RUN") {
+            redirectUrl = userData.truck ? "/dashboard-truck" : "/dashboard-driver";
+          }
+          router.push(redirectUrl);
+        }, 1000);
+
+      } else {
+         throw new Error("Dados do usuário não encontrados.");
+      }
+
+    } catch (error: any) {
+      console.error("Login failed", error);
+      let description = "Matrícula ou senha incorretos.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        description = "Matrícula ou senha incorretos.";
+      } else if (error.message === "Dados do usuário não encontrados."){
+        description = "Usuário não pertence à empresa/setor selecionado.";
+      } else {
+        description = "Ocorreu um erro ao fazer login. Tente novamente.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Erro no Login",
+        description,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
       <div className="flex items-center justify-center py-12">
@@ -23,41 +184,79 @@ export default function Home() {
             </div>
             <h2 className="text-2xl font-bold font-headline">Login to your account</h2>
             <p className="text-balance text-muted-foreground">
-              Enter your email and password below to continue.
+              Selecione sua empresa, setor e insira suas credenciais.
             </p>
           </div>
-          <form className="grid gap-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
-                required
+              <Label htmlFor="companyId">Empresa</Label>
+              <Controller
+                name="companyId"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isFetchingCompanies}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isFetchingCompanies ? "Carregando..." : "Selecione a empresa"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               />
+              {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="sectorId">Setor</Label>
+               <Controller
+                name="sectorId"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompanyId || isFetchingSectors}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isFetchingSectors ? "Carregando..." : "Selecione o setor"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sectors.map((sector) => (
+                        <SelectItem key={sector.id} value={sector.id}>
+                          {sector.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.sectorId && <p className="text-sm text-destructive">{errors.sectorId.message}</p>}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Matrícula</Label>
+              <Controller
+                name="email"
+                control={control}
+                render={({ field }) => <Input id="email" placeholder="Sua matrícula" {...field} />}
+              />
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  href="#"
-                  className="ml-auto inline-block text-sm underline"
-                >
-                  Forgot your password?
-                </Link>
+                <Label htmlFor="password">Senha</Label>
               </div>
-              <Input id="password" type="password" required />
+              <Controller
+                name="password"
+                control={control}
+                render={({ field }) => <Input id="password" type="password" {...field} />}
+              />
+               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
-            <Button type="submit" className="w-full">
-              Login
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Entrar
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{" "}
-            <Link href="#" className="underline">
-              Sign up
-            </Link>
-          </div>
         </div>
       </div>
       <div className="hidden bg-muted lg:block relative">
