@@ -61,7 +61,7 @@
         },
         "sectorId": {
           "type": "string",
-          "description": "Reference to Sector. (Relationship: Sector 1:N User)"
+          "description": "Reference to Sector. (Relationship: Sector 1_N User)"
         },
         "name": {
           "type": "string",
@@ -88,7 +88,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Vehicle",
       "type": "object",
-      "description": "Represents a vehicle within a company.",
+      "description": "Represents a vehicle within a company's sector.",
       "properties": {
         "id": {
           "type": "string",
@@ -97,6 +97,10 @@
         "companyId": {
           "type": "string",
           "description": "Reference to Company. (Relationship: Company 1:N Vehicle)"
+        },
+        "sectorId": {
+          "type": "string",
+          "description": "Reference to Sector. (Relationship: Sector 1:N Vehicle)"
         },
         "model": {
           "type": "string",
@@ -111,6 +115,7 @@
       "required": [
         "id",
         "companyId",
+        "sectorId",
         "model"
       ]
     }
@@ -184,17 +189,21 @@
         }
       },
       {
-        "path": "/companies/{companyId}/vehicles/{vehicleId}",
+        "path": "/companies/{companyId}/sectors/{sectorId}/vehicles/{vehicleId}",
         "definition": {
           "entityName": "Vehicle",
           "schema": {
             "$ref": "#/backend/entities/Vehicle"
           },
-          "description": "Stores vehicle information within a company.",
+          "description": "Stores vehicle information within a company and sector.",
           "params": [
             {
               "name": "companyId",
               "description": "Unique identifier for the company."
+            },
+            {
+              "name": "sectorId",
+              "description": "Unique identifier for the sector."
             },
             {
               "name": "vehicleId",

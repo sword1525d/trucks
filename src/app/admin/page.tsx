@@ -37,10 +37,12 @@ const companySchema = z.object({
 const sectorSchema = z.object({
   companyId: z.string().min(1, 'Selecione uma empresa'),
   sectorId: z.string().min(1, 'ID do Setor é obrigatório'),
+  sectorName: z.string().min(1, 'Nome do setor é obrigatório')
 });
 
 const vehicleSchema = z.object({
   companyId: z.string().min(1, 'Selecione uma empresa'),
+  sectorId: z.string().min(1, 'Selecione um setor'),
   vehicleId: z.string().min(1, 'ID do Veículo (placa) é obrigatório'),
   model: z.string().min(1, 'Modelo é obrigatório'),
   imageUrl: z.string().url('URL da imagem inválida').optional(),
@@ -67,7 +69,8 @@ export default function AdminPage() {
   const { firestore, auth } = useFirebase();
   const { toast } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [sectorsUser, setSectorsUser] = useState<Sector[]>([]);
+  const [sectorsVehicle, setSectorsVehicle] = useState<Sector[]>([]);
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState<Record<string, boolean>>({});
 
@@ -77,6 +80,7 @@ export default function AdminPage() {
   const userForm = useForm<UserFormValues>({ resolver: zodResolver(userSchema) });
 
   const selectedCompanyUserForm = userForm.watch('companyId');
+  const selectedCompanyVehicleForm = vehicleForm.watch('companyId');
 
   const fetchCompanies = async () => {
     if (!firestore) return;
@@ -97,25 +101,31 @@ export default function AdminPage() {
     fetchCompanies();
   }, [firestore]);
 
-  useEffect(() => {
-    const fetchSectors = async () => {
-      if (!firestore || !selectedCompanyUserForm) {
-        setSectors([]);
-        userForm.setValue('sectorId', '');
-        return;
-      }
-      try {
-        const sectorsCol = collection(firestore, `companies/${selectedCompanyUserForm}/sectors`);
-        const sectorSnapshot = await getDocs(sectorsCol);
-        const sectorList = sectorSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name as string }));
-        setSectors(sectorList);
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível carregar os setores.' });
-      }
-    };
+  const fetchSectors = async (companyId: string | undefined, setSectorsCallback: (sectors: Sector[]) => void, resetSectorId: () => void) => {
+    if (!firestore || !companyId) {
+      setSectorsCallback([]);
+      resetSectorId();
+      return;
+    }
+    try {
+      const sectorsCol = collection(firestore, `companies/${companyId}/sectors`);
+      const sectorSnapshot = await getDocs(sectorsCol);
+      const sectorList = sectorSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name as string }));
+      setSectorsCallback(sectorList);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível carregar os setores.' });
+    }
+  };
 
-    fetchSectors();
+
+  useEffect(() => {
+    fetchSectors(selectedCompanyUserForm, setSectorsUser, () => userForm.setValue('sectorId', ''));
   }, [selectedCompanyUserForm, firestore, userForm]);
+
+  useEffect(() => {
+    fetchSectors(selectedCompanyVehicleForm, setSectorsVehicle, () => vehicleForm.setValue('sectorId', ''));
+  }, [selectedCompanyVehicleForm, firestore, vehicleForm]);
+
 
   const handleSubmission = async (formName: string, action: () => Promise<void>) => {
     setIsSubmitting(prev => ({ ...prev, [formName]: true }));
@@ -148,7 +158,7 @@ export default function AdminPage() {
     await handleSubmission('setor', async () => {
       if (!firestore) throw new Error('Firestore não disponível');
       const sectorRef = doc(firestore, `companies/${data.companyId}/sectors`, data.sectorId);
-      await setDoc(sectorRef, { name: data.sectorId });
+      await setDoc(sectorRef, { name: data.sectorName });
       toast({ title: 'Sucesso', description: 'Setor cadastrado!' });
       sectorForm.reset();
     });
@@ -157,7 +167,7 @@ export default function AdminPage() {
   const onVehicleSubmit = async (data: VehicleFormValues) => {
     await handleSubmission('veículo', async () => {
       if (!firestore) throw new Error('Firestore não disponível');
-      const vehicleRef = doc(firestore, `companies/${data.companyId}/vehicles`, data.vehicleId);
+      const vehicleRef = doc(firestore, `companies/${data.companyId}/sectors/${data.sectorId}/vehicles`, data.vehicleId);
       await setDoc(vehicleRef, { model: data.model, imageUrl: data.imageUrl || '' });
       toast({ title: 'Sucesso', description: 'Veículo cadastrado!' });
       vehicleForm.reset();
@@ -239,8 +249,11 @@ export default function AdminPage() {
               />
               {sectorForm.formState.errors.companyId && <p className="text-sm text-destructive">{sectorForm.formState.errors.companyId.message}</p>}
 
-              <Input {...sectorForm.register('sectorId')} placeholder="ID do Setor (Ex: MILK RUN)" />
+              <Input {...sectorForm.register('sectorId')} placeholder="ID do Setor (Ex: MILKRUN)" />
               {sectorForm.formState.errors.sectorId && <p className="text-sm text-destructive">{sectorForm.formState.errors.sectorId.message}</p>}
+              
+              <Input {...sectorForm.register('sectorName')} placeholder="Nome do Setor (Ex: Milk Run)" />
+              {sectorForm.formState.errors.sectorName && <p className="text-sm text-destructive">{sectorForm.formState.errors.sectorName.message}</p>}
 
               <Button type="submit" disabled={isSubmitting['setor']}>
                 {renderLoading('setor')} Cadastrar Setor
@@ -253,7 +266,7 @@ export default function AdminPage() {
         <Card>
           <CardHeader>
             <CardTitle>Cadastrar Novo Veículo</CardTitle>
-            <CardDescription>Adicione um veículo a uma empresa.</CardDescription>
+            <CardDescription>Adicione um veículo a uma empresa e setor.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={vehicleForm.handleSubmit(onVehicleSubmit)} className="space-y-4">
@@ -272,6 +285,22 @@ export default function AdminPage() {
                 )}
               />
               {vehicleForm.formState.errors.companyId && <p className="text-sm text-destructive">{vehicleForm.formState.errors.companyId.message}</p>}
+
+              <Controller
+                name="sectorId"
+                control={vehicleForm.control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompanyVehicleForm || sectorsVehicle.length === 0}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={!selectedCompanyVehicleForm ? "Selecione uma empresa primeiro" : "Selecione o Setor"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sectorsVehicle.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {vehicleForm.formState.errors.sectorId && <p className="text-sm text-destructive">{vehicleForm.formState.errors.sectorId.message}</p>}
 
               <Input {...vehicleForm.register('vehicleId')} placeholder="ID/Placa do Veículo" />
               {vehicleForm.formState.errors.vehicleId && <p className="text-sm text-destructive">{vehicleForm.formState.errors.vehicleId.message}</p>}
@@ -317,12 +346,12 @@ export default function AdminPage() {
                 name="sectorId"
                 control={userForm.control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompanyUserForm || sectors.length === 0}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompanyUserForm || sectorsUser.length === 0}>
                     <SelectTrigger>
                       <SelectValue placeholder={!selectedCompanyUserForm ? "Selecione uma empresa primeiro" : "Selecione o Setor"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      {sectorsUser.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 )}
