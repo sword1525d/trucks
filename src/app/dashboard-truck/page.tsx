@@ -28,7 +28,7 @@ type Vehicle = {
   model: string;
   isTruck: boolean;
   imageUrl?: string;
-  status?: 'NO ESTACIONAMENTO' | 'EM CORRIDA' | 'EM ACOMPANHAMENTO';
+  status?: 'PARADO' | 'EM CORRIDA' | 'EM ACOMPANHAMENTO';
   driverName?: string;
 };
 
@@ -38,7 +38,7 @@ const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
         switch (vehicle.status) {
             case 'EM CORRIDA': return 'bg-red-500';
             case 'EM ACOMPANHAMENTO': return 'bg-orange-500';
-            case 'NO ESTACIONAMENTO':
+            case 'PARADO':
             default:
                 return 'bg-green-500';
         }
@@ -48,7 +48,7 @@ const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
         switch (vehicle.status) {
             case 'EM CORRIDA': return 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800';
             case 'EM ACOMPANHAMENTO': return 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800';
-            case 'NO ESTACIONAMENTO':
+            case 'PARADO':
             default:
                 return 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800';
         }
@@ -114,7 +114,7 @@ export default function DashboardTruckPage() {
         const vehiclesList: Vehicle[] = vehiclesSnapshot.docs
             .map(doc => ({ id: doc.id, ...(doc.data() as Omit<Vehicle, 'id'>) }))
             .filter(v => v.isTruck)
-            .map(v => ({ ...v, status: 'NO ESTACIONAMENTO' })); // Default status
+            .map(v => ({ ...v, status: 'PARADO' })); // Default status
 
         // Fetch active runs to update vehicle status and find user's active run
         const runsCol = collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/runs`);
@@ -192,12 +192,12 @@ export default function DashboardTruckPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex flex-col min-h-screen">
       <main className="flex-1 p-4 sm:p-6 lg:p-8 container mx-auto max-w-4xl">
         <div className="flex justify-between items-start mb-8">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-3xl font-bold font-headline text-primary">
+                <h1 className="text-3xl font-bold text-primary">
                   Dashboard
                 </h1>
               </div>
