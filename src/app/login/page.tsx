@@ -122,55 +122,69 @@ export default function LoginPage() {
 
 
   const onSubmit = async (data: LoginFormValues) => {
-    if (!auth) return;
+    if (!auth || !firestore) return;
     setIsLoading(true);
     try {
-      const email = `${data.email}@frotacontrol.com`;
-      const userCredential = await signInWithEmailAndPassword(auth, email, data.password);
-      const user = userCredential.user;
+        const email = `${data.email}@frotacontrol.com`;
+        
+        let password = data.password;
+        if (password.length < 6) {
+            password = password.padStart(6, '0');
+        }
 
-      if (!firestore) throw new Error("Firestore not available");
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
       
-      const userDocRef = doc(firestore, `companies/${data.companyId}/sectors/${data.sectorId}/users`, user.uid);
-      const userDoc = await getDoc(userDocRef);
+        const userDocRef = doc(firestore, `companies/${data.companyId}/sectors/${data.sectorId}/users`, user.uid);
+        const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        localStorage.setItem('user', JSON.stringify({ ...userData, id: user.uid }));
-        toast({
-          title: "Sucesso",
-          description: "Login realizado com sucesso!",
-        });
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
 
-        setTimeout(() => {
-          let redirectUrl = "/dashboard"; 
-          if (data.companyId === "LSL" && data.sectorId === "MILK RUN") {
-            redirectUrl = userData.truck ? "/dashboard-truck" : "/dashboard-driver";
-          }
-          router.push(redirectUrl);
-        }, 1000);
+            // Salvar dados essenciais para a sessão
+            localStorage.setItem('user', JSON.stringify({ ...userData, id: user.uid }));
+            localStorage.setItem('companyId', data.companyId);
+            localStorage.setItem('sectorId', data.sectorId);
+            localStorage.setItem('matricula', data.email);
 
-      } else {
-         throw new Error("Dados do usuário não encontrados.");
-      }
+            toast({
+                title: "Sucesso",
+                description: "Login realizado com sucesso!",
+            });
+
+            setTimeout(() => {
+                let redirectUrl = "/dashboard"; 
+                if (userData.truck) {
+                    redirectUrl = "/dashboard-truck";
+                } else if (data.companyId === "LSL" && data.sectorId === "MILKRUN") {
+                    redirectUrl = "/dashboard-driver";
+                }
+                router.push(redirectUrl);
+            }, 1000);
+
+        } else {
+            throw new Error("Dados do usuário não encontrados ou usuário não pertence ao setor selecionado.");
+        }
 
     } catch (error: any) {
-      console.error("Login falhou", error);
-      let description = "Matrícula ou senha incorretos.";
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        description = "Matrícula ou senha incorretos.";
-      } else if (error.message === "Dados do usuário não encontrados."){
-        description = "Usuário não pertence à empresa/setor selecionado.";
-      } else {
-        description = "Ocorreu um erro ao fazer login. Tente novamente.";
-      }
-      toast({
-        variant: "destructive",
-        title: "Erro no Login",
-        description,
-      });
+        console.error("Login falhou", error);
+        let description = "Ocorreu um erro desconhecido.";
+
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            description = "Matrícula ou senha incorretos.";
+        } else if (error.message.includes("Dados do usuário não encontrados")) {
+            description = "Usuário não pertence à empresa/setor selecionado.";
+        } else {
+            description = "Ocorreu um erro ao fazer login. Tente novamente.";
+        }
+        
+        toast({
+            variant: "destructive",
+            title: "Erro no Login",
+            description,
+        });
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
   
