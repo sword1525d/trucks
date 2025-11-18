@@ -133,28 +133,78 @@
       "type": "object",
       "description": "Represents a truck run or trip.",
       "properties": {
-        "driverId": { "type": "string" },
-        "driverName": { "type": "string" },
-        "vehicleId": { "type": "string" },
-        "startMileage": { "type": "number" },
-        "endMileage": { "type": "number" },
-        "startTime": { "type": "string", "format": "date-time" },
-        "endTime": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["IN_PROGRESS", "COMPLETED"] },
+        "driverId": {
+          "type": "string"
+        },
+        "driverName": {
+          "type": "string"
+        },
+        "vehicleId": {
+          "type": "string"
+        },
+        "startMileage": {
+          "type": "number"
+        },
+        "endMileage": {
+          "type": "number"
+        },
+        "startTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "IN_PROGRESS",
+            "COMPLETED"
+          ]
+        },
         "stops": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "name": { "type": "string" },
-              "status": { "type": "string", "enum": ["PENDING", "COMPLETED"] },
-              "arrivalTime": { "type": "string", "format": "date-time" },
-              "departureTime": { "type": "string", "format": "date-time" },
-              "collectedOccupiedCars": { "type": "number" },
-              "collectedEmptyCars": { "type": "number" },
-              "mileageAtStop": { "type": "number" }
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "PENDING",
+                  "IN_PROGRESS",
+                  "COMPLETED",
+                  "CANCELED"
+                ]
+              },
+              "arrivalTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "departureTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "collectedOccupiedCars": {
+                "type": "number"
+              },
+              "collectedEmptyCars": {
+                "type": "number"
+              },
+              "mileageAtStop": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
             },
-            "required": ["name", "status"]
+            "required": [
+              "name",
+              "status"
+            ]
           }
         },
         "locationHistory": {
@@ -163,15 +213,34 @@
           "items": {
             "type": "object",
             "properties": {
-              "latitude": { "type": "number" },
-              "longitude": { "type": "number" },
-              "timestamp": { "type": "string", "format": "date-time" }
+              "latitude": {
+                "type": "number"
+              },
+              "longitude": {
+                "type": "number"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
             },
-            "required": ["latitude", "longitude", "timestamp"]
+            "required": [
+              "latitude",
+              "longitude",
+              "timestamp"
+            ]
           }
         }
       },
-      "required": ["driverId", "driverName", "vehicleId", "startMileage", "startTime", "status", "stops"]
+      "required": [
+        "driverId",
+        "driverName",
+        "vehicleId",
+        "startMileage",
+        "startTime",
+        "status",
+        "stops"
+      ]
     }
   },
   "auth": {
@@ -186,7 +255,9 @@
         "path": "/companies/{companyId}",
         "definition": {
           "entityName": "Company",
-          "schema": { "$ref": "#/backend/entities/Company" },
+          "schema": {
+            "$ref": "#/backend/entities/Company"
+          },
           "description": "Stores company information."
         }
       },
@@ -194,7 +265,9 @@
         "path": "/companies/{companyId}/sectors/{sectorId}",
         "definition": {
           "entityName": "Sector",
-          "schema": { "$ref": "#/backend/entities/Sector" },
+          "schema": {
+            "$ref": "#/backend/entities/Sector"
+          },
           "description": "Stores sector information within a company."
         }
       },
@@ -202,7 +275,9 @@
         "path": "/companies/{companyId}/sectors/{sectorId}/users/{userId}",
         "definition": {
           "entityName": "User",
-          "schema": { "$ref": "#/backend/entities/User" },
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
           "description": "Stores user information within a company and sector."
         }
       },
@@ -210,15 +285,19 @@
         "path": "/companies/{companyId}/sectors/{sectorId}/vehicles/{vehicleId}",
         "definition": {
           "entityName": "Vehicle",
-          "schema": { "$ref": "#/backend/entities/Vehicle" },
+          "schema": {
+            "$ref": "#/backend/entities/Vehicle"
+          },
           "description": "Stores vehicle information within a company and sector."
         }
       },
-       {
+      {
         "path": "/companies/{companyId}/sectors/{sectorId}/runs/{runId}",
         "definition": {
           "entityName": "Run",
-          "schema": { "$ref": "#/backend/entities/Run" },
+          "schema": {
+            "$ref": "#/backend/entities/Run"
+          },
           "description": "Stores truck run data within a company and sector."
         }
       }

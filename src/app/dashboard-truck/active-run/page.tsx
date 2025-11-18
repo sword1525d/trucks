@@ -4,7 +4,14 @@ import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useFirebase } from '@/firebase';
-import { doc, getDoc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,9 +36,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, CheckCircle2, Loader2, Milestone } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, Milestone, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
-type StopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+const PREDEFINED_STOP_POINTS: string[] = [
+  "PINT. ABS", "PINT. FX ABS", "MOCOM", "INJ. PLÁSTICA", "PINT. PÓ", "USINAGEM", "PINT. TANQUE", "PINT. ALUMÍNIO",
+  "MONT. RODA", "SOLDA CHASSI", "DIV. PEÇAS", "GALVANOPLASTIA", "DOBRADETUBOS", "ESTAM. PRENSA", "MONT. MOTOR", "SOLDA ESCAP.",
+  "LINHA MONT.", "PINT. ALT. TEMP.", "SOLDA TANQUE", "FUNDIÇÃO", "SOLDA COMP.", "FÁBR. ASSENTO", "MONT. QUADRI.", "MONT. FILTRO",
+  "SOLDA ALUMÍNIO", "FABRICA DE ARO", "MOCOMMSIN1", "PRENSA. COMP."
+];
+
+type StopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
 
 type Stop = {
   name: string;
@@ -140,6 +155,7 @@ function ActiveRunContent() {
   const [run, setRun] = useState<Run | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [stopData, setStopData] = useState<{ [key: string]: { occupied: string; empty: string; mileage: string } }>({});
+  const [newPoint, setNewPoint] = useState('');
   
   const runId = searchParams.get('id');
 
@@ -307,15 +323,75 @@ function ActiveRunContent() {
         }
     }));
   };
+
+  const updateStopsInFirestore = async (newStops: Stop[]) => {
+    if (!run || !firestore || !runId) return;
+
+    try {
+        const companyId = localStorage.getItem('companyId');
+        const sectorId = localStorage.getItem('sectorId');
+        const runRef = doc(firestore, `companies/${companyId}/sectors/${sectorId}/runs`, runId);
+
+        await updateDoc(runRef, { stops: newStops });
+
+        setRun(prevRun => prevRun ? { ...prevRun, stops: newStops } : null);
+    } catch (error) {
+        console.error("Erro ao atualizar paradas:", error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível atualizar a lista de paradas.' });
+        fetchRun(); // Re-fetch para reverter
+    }
+  };
+
+  const handleAddPoint = () => {
+    if (!run) return;
+    if (newPoint && !run.stops.some(s => s.name === newPoint)) {
+      const newStop: Stop = {
+        name: newPoint,
+        status: 'PENDING',
+        arrivalTime: null,
+        departureTime: null,
+        collectedOccupiedCars: null,
+        collectedEmptyCars: null,
+        mileageAtStop: null,
+      };
+      const newStops = [...run.stops, newStop];
+      updateStopsInFirestore(newStops);
+      setNewPoint('');
+      toast({ description: `Ponto "${newPoint}" adicionado.` });
+    } else {
+        toast({ variant: 'destructive', description: 'Selecione um ponto ou o ponto já foi adicionado.' });
+    }
+  };
+
+  const handleCancelPoint = (indexToRemove: number) => {
+    if (!run) return;
+    const newStops = run.stops.filter((_, index) => index !== indexToRemove);
+    updateStopsInFirestore(newStops);
+    toast({ variant: 'destructive', description: 'Ponto removido.' });
+  };
+  
+  const handleMovePoint = (index: number, direction: 'up' | 'down') => {
+    if (!run) return;
+    const newStops = [...run.stops];
+    if (direction === 'up' && index > 0) {
+      [newStops[index - 1], newStops[index]] = [newStops[index], newStops[index - 1]];
+      updateStopsInFirestore(newStops);
+    } else if (direction === 'down' && index < newStops.length - 1) {
+      [newStops[index + 1], newStops[index]] = [newStops[index], newStops[index + 1]];
+      updateStopsInFirestore(newStops);
+    }
+  };
   
   const handleFinishRun = async () => {
     if (!run || !firestore || !runId) return;
     
     const stopsArray = Array.isArray(run.stops) ? run.stops : [];
-    const lastStop = stopsArray.length > 0 ? stopsArray[stopsArray.length - 1] : null;
+    // Get the last COMPLETED stop, not just the last one in the array
+    const lastCompletedStop = [...stopsArray].reverse().find(s => s.status === 'COMPLETED');
 
-    if (!lastStop || !lastStop.mileageAtStop) {
-        toast({ variant: 'destructive', title: 'Erro', description: 'A quilometragem da última parada é necessária.' });
+
+    if (!lastCompletedStop || !lastCompletedStop.mileageAtStop) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'A quilometragem da última parada finalizada é necessária para concluir a corrida.' });
         return;
     }
 
@@ -327,7 +403,7 @@ function ActiveRunContent() {
         await updateDoc(runRef, {
             status: 'COMPLETED',
             endTime: new Date(),
-            endMileage: lastStop.mileageAtStop
+            endMileage: lastCompletedStop.mileageAtStop
         });
 
         toast({ title: 'Acompanhamento Finalizado!', description: 'Sua rota foi concluída com sucesso.' });
@@ -339,7 +415,7 @@ function ActiveRunContent() {
     }
   }
 
-  const allStopsCompleted = run && Array.isArray(run.stops) && run.stops.length > 0 && run.stops.every(s => s.status === 'COMPLETED');
+  const allStopsCompleted = run && Array.isArray(run.stops) && run.stops.length > 0 && run.stops.every(s => s.status === 'COMPLETED' || s.status === 'CANCELED');
 
 
   if (isLoading || !run) {
@@ -370,24 +446,40 @@ function ActiveRunContent() {
                 const isPending = stop.status === 'PENDING';
                 const isInProgress = stop.status === 'IN_PROGRESS';
                 const isCompleted = stop.status === 'COMPLETED';
+                const isCanceled = stop.status === 'CANCELED';
                 
                 const canStartThisStop = isPending && (index === 0 || (stopsArray[index-1] && stopsArray[index-1].status === 'COMPLETED'));
                 
+                if (isCanceled) return null;
+
                 return (
-                    <Card key={index} className={isCompleted ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-card'}>
+                    <Card key={index} className={`group ${isCompleted ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-card'}`}>
                         <CardHeader>
                             <CardTitle className="flex items-center justify-between">
                                 <span className="flex items-center gap-2">
                                     {isCompleted ? <CheckCircle2 className="text-green-600"/> : <Milestone className="text-muted-foreground"/>}
                                     {stop.name}
                                 </span>
-                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                    isCompleted ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
-                                    isInProgress ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                                    'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                                }`}>
-                                    {isCompleted ? 'CONCLUÍDO' : isInProgress ? 'EM ANDAMENTO' : 'PENDENTE'}
-                                </span>
+                                <div className="flex items-center gap-1">
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMovePoint(index, 'up')} disabled={index === 0}>
+                                          <ArrowUp className="h-4 w-4"/>
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMovePoint(index, 'down')} disabled={index === stopsArray.length - 1}>
+                                          <ArrowDown className="h-4 w-4"/>
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCancelPoint(index)}>
+                                          <Trash2 className="text-destructive h-4 w-4"/>
+                                      </Button>
+                                    </div>
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                        isCompleted ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
+                                        isInProgress ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                                        'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                                    }`}>
+                                        {isCompleted ? 'CONCLUÍDO' : isInProgress ? 'EM ANDAMENTO' : 'PENDENTE'}
+                                    </span>
+                                </div>
                             </CardTitle>
                         </CardHeader>
 
@@ -442,6 +534,22 @@ function ActiveRunContent() {
                     </Card>
                 )
             })}
+             <Separator />
+
+              <div className="space-y-4 pt-4">
+                <h3 className="text-lg font-semibold">Adicionar Parada à Rota</h3>
+                <div className="flex gap-2">
+                    <Select value={newPoint} onValueChange={setNewPoint}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Selecione um novo ponto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {PREDEFINED_STOP_POINTS.filter(p => !stopsArray.some(s => s.name === p)).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Button onClick={handleAddPoint}><Plus className="mr-2 h-4 w-4"/> Adicionar</Button>
+                </div>
+              </div>
             
             {allStopsCompleted && (
                 <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
