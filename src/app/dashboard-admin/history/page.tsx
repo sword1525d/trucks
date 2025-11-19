@@ -17,13 +17,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calendar as CalendarIcon, Route, Truck, User } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Route, Truck, User, Clock, CheckCircle, Car, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, formatDistanceStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -40,6 +41,9 @@ type Stop = {
   status: StopStatus;
   arrivalTime: FirebaseTimestamp | null;
   departureTime: FirebaseTimestamp | null;
+  collectedOccupiedCars: number | null;
+  collectedEmptyCars: number | null;
+  mileageAtStop: number | null;
 };
 
 export type LocationPoint = {
@@ -93,7 +97,7 @@ const HistoryPage = () => {
       from: startOfDay(subDays(new Date(), 6)),
       to: endOfDay(new Date()),
     });
-    const [selectedRunForMap, setSelectedRunForMap] = useState<Run | null>(null);
+    const [selectedRun, setSelectedRun] = useState<Run | null>(null);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -200,8 +204,8 @@ const HistoryPage = () => {
         return Array.from(distanceMap, ([vehicleId, distance]) => ({ name: vehicleId, total: Math.round(distance) }));
     }, [filteredRuns]);
 
-    const handleViewRoute = (run: Run) => {
-        setSelectedRunForMap(run);
+    const handleViewDetails = (run: Run) => {
+        setSelectedRun(run);
     };
 
     if (isLoading || !user) {
@@ -280,28 +284,14 @@ const HistoryPage = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} onViewRoute={() => handleViewRoute(run)} />) : <TableRow><TableCell colSpan={5} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
+                                {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} onViewDetails={() => handleViewDetails(run)} />) : <TableRow><TableCell colSpan={5} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
                             </TableBody>
                         </Table>
                     </div>}
                 </CardContent>
             </Card>
 
-             <Dialog open={selectedRunForMap !== null} onOpenChange={(isOpen) => !isOpen && setSelectedRunForMap(null)}>
-                <DialogContent className="max-w-4xl h-[80vh]">
-                <DialogHeader>
-                    <DialogTitle>Trajeto da Corrida - {selectedRunForMap?.driverName} ({selectedRunForMap?.vehicleId})</DialogTitle>
-                    <DialogDescription>
-                    Visualização do trajeto completo da corrida.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="h-[calc(80vh-100px)] bg-muted rounded-md">
-                    {selectedRunForMap && (
-                    <RealTimeMap segments={[]} fullLocationHistory={selectedRunForMap.locationHistory?.map(p => ({latitude: p.latitude, longitude: p.longitude})) || []} />
-                    )}
-                </div>
-                </DialogContent>
-            </Dialog>
+             <RunDetailsDialog run={selectedRun} isOpen={selectedRun !== null} onClose={() => setSelectedRun(null)} />
         </div>
     );
 };
@@ -317,7 +307,7 @@ const KpiCard = ({ title, value }: { title: string, value: string }) => (
     </Card>
 );
 
-const HistoryTableRow = ({ run, onViewRoute }: { run: Run, onViewRoute: () => void }) => {
+const HistoryTableRow = ({ run, onViewDetails }: { run: Run, onViewDetails: () => void }) => {
     const distance = run.endMileage && run.startMileage ? (run.endMileage - run.startMileage).toFixed(1) : 'N/A';
     return (
         <TableRow>
@@ -328,9 +318,9 @@ const HistoryTableRow = ({ run, onViewRoute }: { run: Run, onViewRoute: () => vo
             <TableCell>{distance} km</TableCell>
             <TableCell>{run.endTime ? format(new Date(run.endTime.seconds * 1000), 'dd/MM/yy HH:mm') : ''}</TableCell>
             <TableCell className="text-right">
-                <Button variant="outline" size="sm" onClick={onViewRoute}>
+                <Button variant="outline" size="sm" onClick={onViewDetails}>
                     <Route className="h-4 w-4 mr-2" />
-                    Ver Trajeto
+                    Ver Detalhes
                 </Button>
             </TableCell>
         </TableRow>
@@ -374,4 +364,74 @@ const DateFilter = ({ date, setDate }: { date: DateRange | undefined, setDate: (
     </Popover>
 );
 
+const RunDetailsDialog = ({ run, isOpen, onClose }: { run: Run | null, isOpen: boolean, onClose: () => void }) => {
+    if (!run) return null;
+
+    const formatFirebaseTime = (timestamp: FirebaseTimestamp | null) => {
+        if (!timestamp) return '--:--';
+        return format(new Date(timestamp.seconds * 1000), 'HH:mm');
+    };
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-4xl h-[80vh]">
+                <DialogHeader>
+                    <DialogTitle>Detalhes da Corrida - {run.driverName} ({run.vehicleId})</DialogTitle>
+                    <DialogDescription>
+                        Visualização detalhada da rota e paradas da corrida.
+                    </DialogDescription>
+                </DialogHeader>
+                <Tabs defaultValue="details" className="h-[calc(80vh-100px)]">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="details">Detalhes da Rota</TabsTrigger>
+                        <TabsTrigger value="map">Mapa do Trajeto</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="details" className="h-[calc(100%-40px)] overflow-y-auto">
+                        <div className="space-y-4 p-1">
+                             {run.stops.filter(s => s.status === 'COMPLETED').map((stop, index) => (
+                                <Card key={index} className="bg-muted/50">
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <CheckCircle className="h-5 w-5 text-green-500" />
+                                            {stop.name}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                                <div>
+                                                    <p className="font-semibold">Chegada: {formatFirebaseTime(stop.arrivalTime)}</p>
+                                                    <p className="font-semibold">Saída: {formatFirebaseTime(stop.departureTime)}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Route className="h-4 w-4 text-muted-foreground" />
+                                                <p className="font-semibold">KM: {stop.mileageAtStop || 'N/A'}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Car className="h-4 w-4 text-muted-foreground" />
+                                                <p className="font-semibold">Ocupados: {stop.collectedOccupiedCars ?? 'N/A'}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Package className="h-4 w-4 text-muted-foreground" />
+                                                <p className="font-semibold">Vazios: {stop.collectedEmptyCars ?? 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="map" className="h-[calc(100%-40px)] bg-muted rounded-md">
+                        <RealTimeMap segments={[]} fullLocationHistory={run.locationHistory?.map(p => ({latitude: p.latitude, longitude: p.longitude})) || []} />
+                    </TabsContent>
+                </Tabs>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export default HistoryPage;
+
+    
