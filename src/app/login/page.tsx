@@ -187,8 +187,8 @@ export default function LoginPage() {
   
  return (
     <div className="flex h-screen w-full flex-col items-center justify-center bg-gray-50 p-4 dark:bg-zinc-950 relative overflow-hidden">
-        <div className="absolute -top-20 -left-20 w-48 h-48 bg-white rounded-full flex items-center justify-center">
-          <span className="font-bold text-3xl text-primary mt-16 ml-16">LSL</span>
+        <div className="absolute -top-12 -left-12 w-28 h-28 bg-white rounded-full flex items-center justify-center">
+          <span className="font-bold text-xl text-primary mt-10 ml-10">LSL</span>
         </div>
         <div className="w-full max-w-sm">
             <div className="grid gap-2 text-center mb-8">
