@@ -188,7 +188,7 @@ export default function LoginPage() {
  return (
     <div className="flex h-screen w-full flex-col items-center justify-center bg-gray-50 p-4 dark:bg-zinc-950 relative overflow-hidden">
         <div className="absolute -top-12 -left-12 w-28 h-28 bg-white rounded-full flex items-center justify-center">
-            <Image src="/lsl.png" alt="LSL Logo" width={60} height={20} className="mt-10 ml-10" />
+            <Image src="/lsl.png" alt="LSL Logo" width={40} height={20} className="mt-10 ml-10" />
         </div>
         <div className="w-full max-w-sm">
             <div className="grid gap-2 text-center mb-8">
