@@ -52,13 +52,12 @@ const TruckSVG = ({
       {/* Cargo Area (Segments) */}
       <g transform="translate(15, 73)">
         {segments.map((segment) => {
-          // Invert the logic: 100% is segment 1, 10% is segment 10
-          const isFilled = (11 - segment) * 10 <= occupancy;
+          // Logic: 10% is segment 1 (right), 100% is segment 10 (left)
+          const isFilled = segment * 10 <= occupancy;
           return (
             <rect
               key={segment}
-              // Invert the drawing order for x
-              x={cargoAreaWidth - (segment * (segmentWidth + spacing)) + spacing}
+              x={(segment - 1) * (segmentWidth + spacing)}
               y="0"
               width={segmentWidth}
               height="15"
@@ -70,8 +69,8 @@ const TruckSVG = ({
                 !disabled &&
                   'cursor-pointer hover:fill-primary/80 dark:hover:fill-primary/50'
               )}
-               // Invert the segment value on click
-              onClick={() => !disabled && onSegmentClick(11 - segment)}
+              // The segment value is passed directly on click
+              onClick={() => !disabled && onSegmentClick(segment)}
             />
           );
         })}
@@ -105,7 +104,7 @@ export const OccupancySelector = ({
       </div>
       <div
         className={cn(
-          'rounded-lg border bg-card p-2',
+          'rounded-lg border bg-card p-2 transform -scale-x-100', // Inverte o SVG visualmente
           disabled && 'opacity-50'
         )}
       >
