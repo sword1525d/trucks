@@ -26,7 +26,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, LineChart, Calendar as CalendarIcon, Route, X, Timer } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, LineChart, Calendar as CalendarIcon, Route, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -38,6 +38,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 
 
 // --- Tipos ---
@@ -90,7 +91,7 @@ type UserData = {
   sectorId: string;
 };
 
-type Vehicle = {
+export type Vehicle = {
   id: string;
   model: string;
   isTruck: boolean;
@@ -273,7 +274,7 @@ const AdminDashboardPage = () => {
     }, [firestore, user, toast]);
 
     const handleViewRoute = (run: Run) => {
-        if (!run.locationHistory || run.locationHistory.length < 2) {
+        if (!run.locationHistory || run.locationHistory.length < 1) {
             toast({ variant: 'destructive', title: 'Sem dados', description: 'Não há dados de localização suficientes para exibir o trajeto.' });
             return;
         }
@@ -286,6 +287,8 @@ const AdminDashboardPage = () => {
   }
 
   const mapSegments = selectedRunForMap ? processRunSegments(selectedRunForMap) : [];
+  const fullLocationHistory = selectedRunForMap?.locationHistory || [];
+
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-black">
@@ -325,8 +328,8 @@ const AdminDashboardPage = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="h-[calc(80vh-100px)] bg-muted rounded-md">
-            {selectedRunForMap?.locationHistory && (
-              <RealTimeMap segments={mapSegments} fullLocationHistory={selectedRunForMap.locationHistory} />
+            {selectedRunForMap && (
+              <RealTimeMap segments={mapSegments} fullLocationHistory={fullLocationHistory} />
             )}
           </div>
         </DialogContent>
@@ -365,7 +368,15 @@ const Header = () => {
             {format(time, "eeee, dd 'de' MMMM, HH:mm", { locale: ptBR })}
           </p>
         </div>
-         <Button onClick={handleLogout} variant="outline">Sair</Button>
+        <div className="flex items-center gap-2">
+            <Link href="/dashboard-admin/manage">
+                <Button variant="outline">
+                    <Settings className="mr-2 h-4 w-4"/>
+                    Gerenciar
+                </Button>
+            </Link>
+            <Button onClick={handleLogout} variant="outline">Sair</Button>
+        </div>
        </div>
       </header>
     );
@@ -440,7 +451,7 @@ const RealTimeDashboard = ({ activeRuns, isLoading, onViewRoute }: { activeRuns:
 // --- Componente Item do Acordeão de Corrida ---
 const RunAccordionItem = ({ run, onViewRoute }: { run: Run, onViewRoute: () => void }) => {
   const completedStops = run.stops.filter(s => s.status === 'COMPLETED').length;
-  const totalStops = run.stops.length;
+  const totalStops = run.stops.filter(s => s.status !== 'CANCELED').length;
   const progress = totalStops > 0 ? (completedStops / totalStops) * 100 : 0;
   const currentStop = run.stops.find(s => s.status === 'IN_PROGRESS');
 
@@ -454,6 +465,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: Run, onViewRoute: () => v
       case 'COMPLETED': return { icon: CheckCircle, color: 'text-green-500', label: 'Concluído' };
       case 'IN_PROGRESS': return { icon: PlayCircle, color: 'text-blue-500', label: 'Em Andamento' };
       case 'PENDING': return { icon: Clock, color: 'text-gray-500', label: 'Pendente' };
+      case 'CANCELED': return { icon: X, color: 'text-red-500', label: 'Cancelado' };
       default: return { icon: Clock, color: 'text-gray-500', label: 'Pendente' };
     }
   };
@@ -493,6 +505,8 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: Run, onViewRoute: () => v
           </div>
           {run.stops.map((stop, index) => {
             const { icon: Icon, color, label } = getStatusInfo(stop.status);
+            if (stop.status === 'CANCELED') return null;
+
             const isCompleted = stop.status === 'COMPLETED';
             
             const arrivalTime = stop.arrivalTime ? new Date(stop.arrivalTime.seconds * 1000) : null;

@@ -4,7 +4,7 @@ import Map, { Marker, Source, Layer, MapRef, Popup } from 'react-map-gl';
 import { LngLatBounds } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { type Segment } from './page';
-import { Truck, Clock } from 'lucide-react';
+import { Truck, Timer, Route } from 'lucide-react';
 import type { LineLayer } from 'react-map-gl';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -115,10 +115,10 @@ const RealTimeMap = ({ segments, fullLocationHistory }: RealTimeMapProps) => {
             anchor="bottom"
             offset={25}
         >
-            <div className="text-xs">
+            <div className="text-xs space-y-1">
                 <p className="font-bold">{showPopup.label}</p>
-                <p className="flex items-center gap-1"><Clock className="h-3 w-3" />Viagem: {showPopup.travelTime}</p>
-                <p>Parada: {showPopup.stopTime}</p>
+                <p className="flex items-center gap-1"><Route className="h-3 w-3" />Viagem: {showPopup.travelTime}</p>
+                <p className="flex items-center gap-1"><Timer className="h-3 w-3" />Parada: {showPopup.stopTime}</p>
             </div>
         </Popup>
       )}
