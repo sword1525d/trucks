@@ -19,12 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Truck, Loader2 } from "lucide-react";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase } from '@/firebase';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 const loginSchema = z.object({
   companyId: z.string().min(1, "Selecione uma empresa"),
@@ -39,11 +37,9 @@ type Company = { id: string; name: string };
 type Sector = { id: string; name: string };
 
 export default function LoginPage() {
-  const loginImage = PlaceHolderImages.find((p) => p.id === "login-bg");
   const router = useRouter();
   const { toast } = useToast();
   const { firestore, auth } = useFirebase();
-  const isMobile = useIsMobile();
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
@@ -191,106 +187,84 @@ export default function LoginPage() {
   };
   
   return (
-    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
-      <div className="flex items-center justify-center p-6 sm:p-12 lg:p-8">
-        <div className="mx-auto grid w-full max-w-sm gap-6">
-          <div className="grid gap-2 text-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Truck className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold font-headline text-primary">
-                Frotacontrol
-              </h1>
-            </div>
-            <h2 className="text-2xl font-bold font-headline">Acesse sua conta</h2>
-            <p className="text-balance text-muted-foreground">
-              Selecione sua empresa, setor e insira suas credenciais.
-            </p>
+    <div className="flex items-center justify-center min-h-screen bg-background p-6">
+      <div className="mx-auto grid w-full max-w-sm gap-6">
+        <div className="grid gap-2 text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Truck className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold font-headline text-primary">
+              Frotacontrol
+            </h1>
           </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
-            <div className="grid gap-2">
-              <Controller
-                name="companyId"
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={isFetchingCompanies}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={isFetchingCompanies ? "Carregando empresas..." : "Selecione a empresa"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companies.map((company) => (
-                        <SelectItem key={company.id} value={company.id}>
-                          {company.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
-            </div>
-            <div className="grid gap-2">
-               <Controller
-                name="sectorId"
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompanyId || isFetchingSectors}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={isFetchingSectors ? "Carregando setores..." : "Selecione o setor"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sectors.map((sector) => (
-                        <SelectItem key={sector.id} value={sector.id}>
-                          {sector.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.sectorId && <p className="text-sm text-destructive">{errors.sectorId.message}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Controller
-                name="email"
-                control={control}
-                render={({ field }) => <Input id="email" placeholder="Sua matrícula" {...field} />}
-              />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-            </div>
-            <div className="grid gap-2">
-              <Controller
-                name="password"
-                control={control}
-                render={({ field }) => <Input id="password" type="password" placeholder="Sua senha" {...field} />}
-              />
-               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Entrar
-            </Button>
-            <div className="text-center text-sm">
-                <Link
-                  href="/admin"
-                  className="underline underline-offset-4 hover:text-primary"
-                >
-                  Acessar painel de cadastro (temporário)
-                </Link>
-            </div>
-          </form>
+          <h2 className="text-2xl font-bold font-headline">Acesse sua conta</h2>
+          <p className="text-balance text-muted-foreground">
+            Selecione sua empresa, setor e insira suas credenciais.
+          </p>
         </div>
-      </div>
-      <div className="hidden bg-muted lg:block relative">
-        {loginImage && (
-          <Image
-            src={loginImage.imageUrl}
-            alt={loginImage.description}
-            fill
-            className="object-cover dark:brightness-[0.3] dark:grayscale"
-            data-ai-hint={loginImage.imageHint}
-            priority
-          />
-        )}
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
+          <div className="grid gap-2">
+            <Controller
+              name="companyId"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value} disabled={isFetchingCompanies}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isFetchingCompanies ? "Carregando empresas..." : "Selecione a empresa"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.companyId && <p className="text-sm text-destructive">{errors.companyId.message}</p>}
+          </div>
+          <div className="grid gap-2">
+              <Controller
+              name="sectorId"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCompanyId || isFetchingSectors}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isFetchingSectors ? "Carregando setores..." : "Selecione o setor"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sectors.map((sector) => (
+                      <SelectItem key={sector.id} value={sector.id}>
+                        {sector.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.sectorId && <p className="text-sm text-destructive">{errors.sectorId.message}</p>}
+          </div>
+          <div className="grid gap-2">
+            <Controller
+              name="email"
+              control={control}
+              render={({ field }) => <Input id="email" placeholder="Sua matrícula" {...field} />}
+            />
+            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+          </div>
+          <div className="grid gap-2">
+            <Controller
+              name="password"
+              control={control}
+              render={({ field }) => <Input id="password" type="password" placeholder="Sua senha" {...field} />}
+            />
+              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+          </div>
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Entrar
+          </Button>
+        </form>
       </div>
     </div>
   );
