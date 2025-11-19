@@ -79,6 +79,16 @@
         "isAdmin": {
           "type": "boolean",
           "description": "Indicates if the user has administrative privileges."
+        },
+        "shift": {
+          "type": "string",
+          "description": "The user's work shift.",
+          "enum": [
+            "1° NORMAL",
+            "2° NORMAL",
+            "1° ESPECIAL",
+            "2° ESPECIAL"
+          ]
         }
       },
       "required": [
@@ -352,3 +362,5 @@
     "reasoning": "This Firestore structure prioritizes authorization independence and efficient data retrieval for the Frotacontrol application. It leverages path-based ownership for user data within companies and sectors, eliminating the need for `get()` calls in security rules. The structure enforces homogeneous security postures within collections and subcollections.\n\n*   `/companies/{companyId}`: Stores company information.\n*   `/companies/{companyId}/sectors/{sectorId}`: Stores sector information within each company.\n*   `/companies/{companyId}/sectors/{sectorId}/users/{userId}`: Stores user information, keyed by their unique identifier (`matricula`). This structure allows for direct access to user data based on company, sector, and ID, crucial for authentication and authorization. This design uses the appropriate Hierarchical Paths for User-Owned Data.\n*  `/companies/{companyId}/sectors/{sectorId}/vehicles/{vehicleId}/maintenance/{maintenanceId}`: Stores a history of maintenance records for each vehicle, allowing for easy retrieval of a vehicle's maintenance history.\n\nThis design facilitates simple, robust security rules:\n\n*   Rules can directly verify `request.auth.uid` against the `userId` path segment, ensuring that users can only access their own data within a specific company and sector.\n*   `list` operations are secured because each subcollection contains only documents with the same security requirements (users belonging to a specific sector within a specific company).\n\nDenormalization Strategy:\n\nThe vehicle `status` field is denormalized on the vehicle document for efficient querying of vehicle availability without needing to inspect sub-collections. The canonical state for maintenance is the `maintenance` subcollection, which serves as a ledger."
   }
 }
+
+    

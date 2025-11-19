@@ -30,6 +30,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -42,10 +49,18 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Edit, Trash2 } from 'lucide-react';
 import type { FirestoreUser } from './page';
 
+const TURNOS = {
+    PRIMEIRO_NORMAL: '1° NORMAL',
+    SEGUNDO_NORMAL: '2° NORMAL',
+    PRIMEIRO_ESPECIAL: '1° ESPECIAL',
+    SEGUNDO_ESPECIAL: '2° ESPECIAL'
+};
+
 const userEditSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   isAdmin: z.boolean(),
   truck: z.boolean(),
+  shift: z.string().min(1, 'O turno é obrigatório'),
 });
 
 type UserEditForm = z.infer<typeof userEditSchema>;
@@ -74,6 +89,7 @@ export const UserManagement = ({ users, onDelete, onUpdate, session }: UserManag
       name: user.name,
       isAdmin: user.isAdmin,
       truck: user.truck,
+      shift: user.shift || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -87,6 +103,7 @@ export const UserManagement = ({ users, onDelete, onUpdate, session }: UserManag
         name: data.name.toUpperCase(),
         isAdmin: data.isAdmin,
         truck: data.truck,
+        shift: data.shift,
       });
       toast({ title: 'Sucesso', description: 'Usuário atualizado.' });
       onUpdate();
@@ -106,6 +123,7 @@ export const UserManagement = ({ users, onDelete, onUpdate, session }: UserManag
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
+              <TableHead>Turno</TableHead>
               <TableHead>Admin</TableHead>
               <TableHead>Motorista</TableHead>
               <TableHead className="text-right">Ações</TableHead>
@@ -115,6 +133,7 @@ export const UserManagement = ({ users, onDelete, onUpdate, session }: UserManag
             {users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell>{user.shift || 'N/A'}</TableCell>
                 <TableCell>{user.isAdmin ? 'Sim' : 'Não'}</TableCell>
                 <TableCell>{user.truck ? 'Sim' : 'Não'}</TableCell>
                 <TableCell className="text-right space-x-2">
@@ -161,6 +180,26 @@ export const UserManagement = ({ users, onDelete, onUpdate, session }: UserManag
               <Input id="name" {...register('name')} />
               {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
             </div>
+            
+            <div>
+                <Label htmlFor="shift">Turno</Label>
+                 <Controller
+                    name="shift"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <SelectTrigger id="shift">
+                                <SelectValue placeholder="Selecione o Turno" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                 {Object.values(TURNOS).map(turno => <SelectItem key={turno} value={turno}>{turno}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )}
+                />
+                 {errors.shift && <p className="text-sm text-destructive mt-1">{errors.shift.message}</p>}
+            </div>
+
             <div className="flex items-center space-x-2">
               <Controller
                 name="isAdmin"
@@ -196,3 +235,5 @@ export const UserManagement = ({ users, onDelete, onUpdate, session }: UserManag
     </>
   );
 };
+
+    

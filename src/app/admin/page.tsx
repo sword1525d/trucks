@@ -29,7 +29,21 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import Link from 'next/link';
 
-// Schemas
+// --- Constantes ---
+const ROLES = {
+    MOTORISTA: 'Motorista',
+    ADMINISTRADOR: 'Administrador',
+    AMBOS: 'Ambos'
+};
+
+const TURNOS = {
+    PRIMEIRO_NORMAL: '1° NORMAL',
+    SEGUNDO_NORMAL: '2° NORMAL',
+    PRIMEIRO_ESPECIAL: '1° ESPECIAL',
+    SEGUNDO_ESPECIAL: '2° ESPECIAL'
+};
+
+// --- Schemas ---
 const companySchema = z.object({
   companyId: z.string().min(1, 'ID da Empresa é obrigatório'),
   companyName: z.string().min(1, 'Nome da Empresa é obrigatório'),
@@ -53,17 +67,18 @@ const vehicleSchema = z.object({
   path: ['imageUrl'],
 });
 
-
 const userSchema = z.object({
   companyId: z.string().min(1, 'Selecione uma empresa'),
   sectorId: z.string().min(1, 'Selecione um setor'),
   userName: z.string().min(1, 'Nome do usuário é obrigatório'),
   userMatricula: z.string().min(1, 'Matrícula é obrigatória'),
   userPassword: z.string().min(1, 'A senha é obrigatória'),
-  isTruckDriver: z.boolean().default(false),
-  isAdmin: z.boolean().default(false),
+  role: z.string().min(1, "A função é obrigatória"),
+  shift: z.string().min(1, "O turno é obrigatório"),
 });
 
+
+// --- Tipos ---
 type CompanyFormValues = z.infer<typeof companySchema>;
 type SectorFormValues = z.infer<typeof sectorSchema>;
 type VehicleFormValues = z.infer<typeof vehicleSchema>;
@@ -78,8 +93,8 @@ const defaultUserValues = {
   userName: '',
   userMatricula: '',
   userPassword: '',
-  isTruckDriver: false,
-  isAdmin: false,
+  role: '',
+  shift: '',
 };
 
 const defaultVehicleValues = {
@@ -91,6 +106,7 @@ const defaultVehicleValues = {
   isTruck: false,
 };
 
+// --- Componente ---
 export default function AdminPage() {
   const { firestore, auth } = useFirebase();
   const { toast } = useToast();
@@ -129,11 +145,9 @@ export default function AdminPage() {
   }, [firestore]);
 
   const fetchSectors = async (companyId: string | undefined, setSectorsCallback: (sectors: Sector[]) => void, resetSectorId: () => void) => {
-    setSectorsCallback([]); // Sempre limpa os setores antes de buscar novos
+    setSectorsCallback([]);
     resetSectorId();
-    if (!firestore || !companyId) {
-      return;
-    }
+    if (!firestore || !companyId) return;
     try {
       const sectorsCol = collection(firestore, `companies/${companyId}/sectors`);
       const sectorSnapshot = await getDocs(sectorsCol);
@@ -146,11 +160,15 @@ export default function AdminPage() {
 
 
   useEffect(() => {
-    fetchSectors(selectedCompanyUserForm, setSectorsUser, () => userForm.resetField('sectorId'));
+    if (selectedCompanyUserForm) {
+      fetchSectors(selectedCompanyUserForm, setSectorsUser, () => userForm.resetField('sectorId'));
+    }
   }, [selectedCompanyUserForm, firestore, userForm]);
 
   useEffect(() => {
-    fetchSectors(selectedCompanyVehicleForm, setSectorsVehicle, () => vehicleForm.resetField('sectorId'));
+     if (selectedCompanyVehicleForm) {
+      fetchSectors(selectedCompanyVehicleForm, setSectorsVehicle, () => vehicleForm.resetField('sectorId'));
+    }
   }, [selectedCompanyVehicleForm, firestore, vehicleForm]);
 
 
@@ -209,24 +227,21 @@ export default function AdminPage() {
     await handleSubmission('usuário', async () => {
         if (!firestore || !auth) throw new Error('Firebase não disponível');
 
-        // 1. Pad password if needed
         let password = data.userPassword;
         if (password.length < 6) {
           password = password.padStart(6, '0');
         }
 
-        // 2. Create user in Firebase Auth
         const email = `${data.userMatricula}@frotacontrol.com`;
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // 3. Create user document in Firestore
         const userRef = doc(firestore, `companies/${data.companyId}/sectors/${data.sectorId}/users`, user.uid);
         await setDoc(userRef, {
             name: data.userName.toUpperCase(),
-            truck: data.isTruckDriver,
-            isAdmin: data.isAdmin,
-            // Security: We don't store the password in Firestore. Auth handles it.
+            truck: data.role === ROLES.MOTORISTA || data.role === ROLES.AMBOS,
+            isAdmin: data.role === ROLES.ADMINISTRADOR || data.role === ROLES.AMBOS,
+            shift: data.shift,
         });
 
         toast({ title: 'Sucesso', description: 'Usuário cadastrado com sucesso!' });
@@ -440,35 +455,38 @@ export default function AdminPage() {
                 <Input type="password" {...userForm.register('userPassword')} placeholder="Senha do Usuário" />
                 {userForm.formState.errors.userPassword && <p className="text-sm text-destructive">{userForm.formState.errors.userPassword.message}</p>}
                 
-                <div className="flex items-center space-x-2 pt-2">
-                  <Controller
-                      name="isTruckDriver"
-                      control={userForm.control}
-                      render={({ field }) => (
-                          <Switch
-                              id="isTruckDriver"
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                          />
-                      )}
-                  />
-                  <Label htmlFor="isTruckDriver">É motorista de caminhão?</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <Controller
+                        name="role"
+                        control={userForm.control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione a Função" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.values(ROLES).map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                     <Controller
+                        name="shift"
+                        control={userForm.control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione o Turno" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                     {Object.values(TURNOS).map(turno => <SelectItem key={turno} value={turno}>{turno}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
                 </div>
-
-                <div className="flex items-center space-x-2">
-                  <Controller
-                      name="isAdmin"
-                      control={userForm.control}
-                      render={({ field }) => (
-                          <Switch
-                              id="isAdmin"
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                          />
-                      )}
-                  />
-                  <Label htmlFor="isAdmin">É Administrador?</Label>
-                </div>
+                {userForm.formState.errors.role && <p className="text-sm text-destructive">{userForm.formState.errors.role.message}</p>}
+                {userForm.formState.errors.shift && <p className="text-sm text-destructive -mt-3">{userForm.formState.errors.shift.message}</p>}
 
                 <Button type="submit" disabled={isSubmitting['usuário']} className="w-full">
                   {renderLoading('usuário')} Cadastrar Usuário
@@ -482,3 +500,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    

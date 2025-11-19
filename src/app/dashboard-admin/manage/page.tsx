@@ -23,6 +23,7 @@ export type FirestoreUser = {
   truck: boolean;
   isAdmin: boolean;
   matricula: string;
+  shift?: string;
 };
 
 export type VehicleStatusEnum = 'PARADO' | 'EM_CORRIDA' | 'EM_MANUTENCAO';
@@ -83,7 +84,8 @@ const AdminManagementPage = () => {
                 name: data.name,
                 truck: data.truck,
                 isAdmin: data.isAdmin,
-                matricula: 'N/A' // Placeholder - Ideally this is stored in the doc
+                matricula: 'N/A', // Placeholder - Ideally this is stored in the doc
+                shift: data.shift
             } as FirestoreUser
         });
         setUsers(userList);

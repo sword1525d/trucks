@@ -17,6 +17,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Loader2, Calendar as CalendarIcon, Route, Truck, User, Clock, CheckCircle, Car, Package, Warehouse } from 'lucide-react';
@@ -30,6 +37,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import dynamic from 'next/dynamic';
+
+// --- Constantes ---
+const TURNOS = {
+    TODOS: 'Todos',
+    PRIMEIRO_NORMAL: '1° NORMAL',
+    SEGUNDO_NORMAL: '2° NORMAL',
+    PRIMEIRO_ESPECIAL: '1° ESPECIAL',
+    SEGUNDO_ESPECIAL: '2° ESPECIAL'
+};
 
 // --- Tipos ---
 type StopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
@@ -55,6 +71,7 @@ export type LocationPoint = {
 
 export type Run = {
   id: string;
+  driverId: string;
   driverName: string;
   vehicleId: string;
   startMileage: number;
@@ -65,6 +82,12 @@ export type Run = {
   stops: Stop[];
   locationHistory?: LocationPoint[];
 };
+
+export type FirestoreUser = {
+  id: string;
+  name: string;
+  shift?: string;
+}
 
 export type Segment = {
     label: string;
@@ -93,11 +116,13 @@ const HistoryPage = () => {
 
     const [user, setUser] = useState<UserData | null>(null);
     const [allRuns, setAllRuns] = useState<Run[]>([]);
+    const [users, setUsers] = useState<Map<string, FirestoreUser>>(new Map());
     const [isLoading, setIsLoading] = useState(true);
     const [date, setDate] = useState<DateRange | undefined>({
       from: startOfDay(subDays(new Date(), 6)),
       to: endOfDay(new Date()),
     });
+    const [selectedShift, setSelectedShift] = useState<string>(TURNOS.TODOS);
     const [selectedRun, setSelectedRun] = useState<Run | null>(null);
 
     useEffect(() => {
@@ -111,44 +136,57 @@ const HistoryPage = () => {
         }
     }, [router]);
 
-    const fetchCompletedRuns = useCallback(async (): Promise<Run[]> => {
-        if (!firestore || !user) return [];
-
-        const runsQuery = query(
-            collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/runs`),
-            where('status', '==', 'COMPLETED')
-        );
+    const fetchInitialData = useCallback(async () => {
+        if (!firestore || !user) return;
+        setIsLoading(true);
 
         try {
+            // Fetch Users
+            const usersCol = collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/users`);
+            const usersSnapshot = await getDocs(usersCol);
+            const usersMap = new Map<string, FirestoreUser>();
+            usersSnapshot.forEach(doc => {
+                usersMap.set(doc.id, { id: doc.id, ...doc.data() } as FirestoreUser);
+            });
+            setUsers(usersMap);
+
+            // Fetch Completed Runs
+            const runsQuery = query(
+                collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/runs`),
+                where('status', '==', 'COMPLETED')
+            );
             const querySnapshot = await getDocs(runsQuery);
             const runs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
-            return runs.sort((a, b) => (b.endTime?.seconds || 0) - (a.endTime?.seconds || 0));
+            setAllRuns(runs.sort((a, b) => (b.endTime?.seconds || 0) - (a.endTime?.seconds || 0)));
+
         } catch (error) {
-            console.error("Error fetching completed runs: ", error);
-            toast({ variant: 'destructive', title: 'Erro ao buscar histórico' });
-            return [];
+            console.error("Error fetching data: ", error);
+            toast({ variant: 'destructive', title: 'Erro ao buscar dados' });
+        } finally {
+            setIsLoading(false);
         }
     }, [firestore, user, toast]);
 
     useEffect(() => {
         if(user) {
-            setIsLoading(true);
-            fetchCompletedRuns().then(data => {
-                setAllRuns(data);
-                setIsLoading(false);
-            });
+            fetchInitialData();
         }
-    }, [user, fetchCompletedRuns]);
+    }, [user, fetchInitialData]);
 
     const filteredRuns = useMemo(() => {
-        if (!date?.from) return allRuns;
-        const toDate = date.to || date.from;
         return allRuns.filter(run => {
-            if (!run.endTime?.seconds) return false;
-            const runDate = new Date(run.endTime.seconds * 1000);
-            return runDate >= startOfDay(date.from!) && runDate <= endOfDay(toDate);
+            const runDate = run.endTime ? new Date(run.endTime.seconds * 1000) : null;
+            if (!runDate) return false;
+
+            const isWithinDateRange = date?.from && runDate >= startOfDay(date.from) && runDate <= endOfDay(date.to || date.from);
+            if (!isWithinDateRange) return false;
+            
+            if (selectedShift === TURNOS.TODOS) return true;
+
+            const driver = users.get(run.driverId);
+            return driver?.shift === selectedShift;
         });
-    }, [allRuns, date]);
+    }, [allRuns, date, selectedShift, users]);
 
     const kpis = useMemo(() => {
       const totalRuns = filteredRuns.length;
@@ -217,7 +255,10 @@ const HistoryPage = () => {
         <div className="flex-1 space-y-6">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <h2 className="text-3xl font-bold tracking-tight">Histórico e Análise</h2>
-                <DateFilter date={date} setDate={setDate} />
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <ShiftFilter selectedShift={selectedShift} onShiftChange={setSelectedShift} />
+                    <DateFilter date={date} setDate={setDate} />
+                </div>
             </div>
             
             <div className="grid gap-4 md:grid-cols-3">
@@ -230,7 +271,7 @@ const HistoryPage = () => {
                 <Card>
                     <CardHeader>
                         <CardTitle>Corridas por Dia</CardTitle>
-                        <CardDescription>Total de corridas concluídas por dia no período selecionado.</CardDescription>
+                        <CardDescription>Total de corridas concluídas por dia no período e turno selecionados.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
@@ -249,7 +290,7 @@ const HistoryPage = () => {
                 <Card>
                     <CardHeader>
                         <CardTitle>Km Rodados por Caminhão</CardTitle>
-                        <CardDescription>Distância total percorrida por cada caminhão no período.</CardDescription>
+                        <CardDescription>Distância total percorrida por cada caminhão no período e turno.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
@@ -269,7 +310,7 @@ const HistoryPage = () => {
             <Card>
                 <CardHeader>
                     <CardTitle>Histórico de Corridas</CardTitle>
-                    <CardDescription>Lista de corridas concluídas no período selecionado.</CardDescription>
+                    <CardDescription>Lista de corridas concluídas no período e turno selecionados.</CardDescription>
                 </CardHeader>
                 <CardContent>
                 {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
@@ -365,6 +406,20 @@ const DateFilter = ({ date, setDate }: { date: DateRange | undefined, setDate: (
     </Popover>
 );
 
+const ShiftFilter = ({ selectedShift, onShiftChange }: { selectedShift: string, onShiftChange: (shift: string) => void }) => (
+    <Select value={selectedShift} onValueChange={onShiftChange}>
+        <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Filtrar por turno" />
+        </SelectTrigger>
+        <SelectContent>
+            {Object.values(TURNOS).map(turno => (
+                <SelectItem key={turno} value={turno}>{turno}</SelectItem>
+            ))}
+        </SelectContent>
+    </Select>
+);
+
+
 const RunDetailsDialog = ({ run, isOpen, onClose }: { run: Run | null, isOpen: boolean, onClose: () => void }) => {
     if (!run) return null;
 
@@ -438,3 +493,5 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: Run | null, isOpen: b
 }
 
 export default HistoryPage;
+
+    
