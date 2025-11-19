@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -8,10 +7,9 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, PlayCircle, Loader2, Fuel } from 'lucide-react';
-import { Truck } from 'lucide-react';
+import { LogOut, PlayCircle, Loader2, Fuel, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 // Tipos para os dados do Firebase
 type UserData = {
@@ -63,9 +61,6 @@ const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
                 <span className={`whitespace-nowrap text-white text-[10px] font-semibold px-2 py-0.5 rounded-full ${getStatusColorClass()}`}>
                     {vehicle.status}
                 </span>
-                <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-2 overflow-hidden">
-                    <div className="h-full bg-green-500 rounded-full" style={{ width: '100%' }}></div>
-                </div>
                 {vehicle.driverName && <p className="text-xs text-muted-foreground mt-1 italic">{vehicle.driverName}</p>}
             </CardContent>
         </Card>
@@ -193,58 +188,54 @@ export default function DashboardTruckPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 container mx-auto max-w-4xl">
-        <div className="flex justify-between items-start mb-8">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-3xl font-bold text-primary">
-                  Dashboard
-                </h1>
-              </div>
-              <p className="text-lg font-semibold">{user.name}</p>
-              <p className="text-sm text-muted-foreground">{user.matricula}</p>
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-black">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 container mx-auto max-w-md">
+        <header className="flex justify-between items-center mb-8">
+            <div className="text-left">
+                <p className="text-lg font-semibold text-foreground">{user.name}</p>
+                <p className="text-sm text-muted-foreground">Matrícula: {user.matricula}</p>
             </div>
-            <div className='flex gap-2'>
-              <Button variant="outline" size="icon" onClick={handleLogout}>
-                <LogOut />
-                <span className="sr-only">Sair</span>
-              </Button>
-               <div className="text-center text-sm">
-                <Link href="/admin" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10">
-                  <Truck />
-                </Link>
-            </div>
-            </div>
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <LogOut className="h-5 w-5 text-muted-foreground" />
+              <span className="sr-only">Sair</span>
+            </Button>
+        </header>
 
-        </div>
-
-        <section className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Button className="w-full h-20 text-lg" onClick={handleStartOrContinueRun}>
-                <PlayCircle className="mr-3"/>
+        <section className="space-y-4">
+            <Button className="w-full h-24 text-xl font-bold" onClick={handleStartOrContinueRun} variant="secondary">
+                <PlayCircle className="mr-3 h-8 w-8"/>
                 {activeRunId ? 'Continuar Acompanhamento' : 'Iniciar Acompanhamento'}
             </Button>
-            <Button className="w-full h-20 text-lg" variant="secondary" onClick={() => router.push('/dashboard-truck/refuel')}>
+            <Button className="w-full h-16 text-lg" variant="outline" onClick={() => router.push('/dashboard-truck/refuel')}>
                 <Fuel className="mr-3"/>
                 Registrar Abastecimento
             </Button>
         </section>
         
-        <section>
-            <h2 className="text-xl font-semibold mb-4">Status dos Caminhões</h2>
-            <div className="bg-card rounded-xl p-4 shadow-sm border">
-                {isLoading ? (
-                    <div className="text-center text-muted-foreground flex items-center justify-center p-4">
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin"/> Carregando...
-                    </div>
-                ) : vehicles.length === 0 ? (
-                    <p className="text-center text-muted-foreground p-4">Nenhum caminhão encontrado.</p>
-                ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {vehicles.map(v => <VehicleCard key={v.id} vehicle={v} />)}
-                    </div>
-                )}
-            </div>
+        <section className="mt-8">
+            <Accordion type="single" collapsible>
+              <AccordionItem value="item-1" className="border-none">
+                <AccordionTrigger className="justify-center text-muted-foreground hover:no-underline text-sm py-2">
+                  Ver Status da Frota
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 ml-1" />
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="bg-card rounded-xl p-4 shadow-sm border mt-2">
+                      {isLoading ? (
+                          <div className="text-center text-muted-foreground flex items-center justify-center p-4">
+                              <Loader2 className="w-5 h-5 mr-2 animate-spin"/> Carregando...
+                          </div>
+                      ) : vehicles.length === 0 ? (
+                          <p className="text-center text-muted-foreground p-4">Nenhum caminhão encontrado.</p>
+                      ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {vehicles.map(v => <VehicleCard key={v.id} vehicle={v} />)}
+                          </div>
+                      )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
         </section>
       </main>
     </div>
