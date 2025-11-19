@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
 
 interface OccupancySelectorProps {
   initialValue?: number;
@@ -49,16 +51,12 @@ const TruckSVG = ({
       {/* Cargo Area (Segments) */}
       <g transform="translate(15, 73)">
         {segments.map((segment) => {
-          // segment 1 is rear door (left), segment 10 is cab (right)
-          // We want to fill from the cab (right) towards the door (left)
-          // Occupancy 10% fills segment 10. Occupancy 100% fills all segments.
-          const isFilled = (11 - segment) * 10 <= occupancy;
+          const isFilled = segment * 10 <= occupancy;
           
           return (
             <rect
               key={segment}
-              // x position from left (0) to right
-              x={(segment - 1) * 20} // 20 = width + spacing
+              x={(10 - segment) * 20}
               y="0"
               width="18"
               height="15"
@@ -70,8 +68,7 @@ const TruckSVG = ({
                 !disabled &&
                   'cursor-pointer hover:fill-primary/80 dark:hover:fill-primary/50'
               )}
-              // When clicking, we pass the "visual" segment number from right to left
-              onClick={() => !disabled && onSegmentClick(11 - segment)}
+              onClick={() => !disabled && onSegmentClick(segment)}
             />
           );
         })}
@@ -93,17 +90,29 @@ export const OccupancySelector = ({
   }, [initialValue]);
 
   const handleSegmentClick = (segmentNumber: number) => {
-    // segmentNumber is from 1 (cab) to 10 (door)
     const newOccupancy = segmentNumber * 10;
     setOccupancy(newOccupancy);
     onValueChange(newOccupancy);
+  };
+
+  const handleClear = () => {
+    setOccupancy(0);
+    onValueChange(0);
   };
 
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center px-1">
         <span className="text-sm text-muted-foreground">Ocupação do Caminhão</span>
-        <span className="text-lg font-bold text-primary">{occupancy}%</span>
+        <div className="flex items-center gap-2">
+          {!disabled && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleClear} disabled={occupancy === 0}>
+                <X className="h-4 w-4" />
+                <span className="sr-only">Zerar ocupação</span>
+            </Button>
+          )}
+          <span className="text-lg font-bold text-primary">{occupancy}%</span>
+        </div>
       </div>
       <div
         className={cn(
