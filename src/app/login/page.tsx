@@ -196,7 +196,7 @@ export default function LoginPage() {
                     </h1>
                 </div>
                 <p className="text-balance text-muted-foreground">
-                    Acesse sua conta para gerenciar a frota.
+                    A sua frota, na sua mão
                 </p>
             </div>
             <div className="rounded-lg border bg-card p-6 shadow-sm">
