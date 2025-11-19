@@ -18,9 +18,6 @@ const TruckSVG = ({
   disabled?: boolean;
 }) => {
   const segments = Array.from({ length: 10 }, (_, i) => i + 1); // 1 to 10
-  const segmentWidth = 18;
-  const spacing = 2;
-  const cargoAreaWidth = segments.length * (segmentWidth + spacing) - spacing;
 
   return (
     <svg
@@ -49,28 +46,21 @@ const TruckSVG = ({
         className="fill-blue-300 dark:fill-blue-800 opacity-70"
       />
 
-      {/* Cargo Area (Segments) - desenhado da esquerda para a direita (de 0 a 9) */}
+      {/* Cargo Area (Segments) */}
       <g transform="translate(15, 73)">
         {segments.map((segment) => {
-          // segment vai de 1 a 10.
-          // Visualmente, o primeiro espaço (perto da cabine) é o mais à direita.
-          // O último espaço (perto da porta) é o mais à esquerda.
-          // Ocupação 10% deve preencher o espaço da direita.
-          // Ocupação 100% deve preencher todos os espaços.
-          
-          // `segment` 1 é a porta traseira (esquerda)
-          // `segment` 10 é a cabine (direita)
-          const isFilled = segment * 10 <= occupancy;
+          // segment 1 is rear door (left), segment 10 is cab (right)
+          // We want to fill from the cab (right) towards the door (left)
+          // Occupancy 10% fills segment 10. Occupancy 100% fills all segments.
+          const isFilled = (11 - segment) * 10 <= occupancy;
           
           return (
             <rect
               key={segment}
-              // A posição X vai de 0 (esquerda) a 9 * (width+spacing) (direita)
-              // `segment` 1 -> x = 0
-              // `segment` 10 -> x = 9 * (width+spacing)
-              x={(segment - 1) * (segmentWidth + spacing)}
+              // x position from left (0) to right
+              x={(segment - 1) * 20} // 20 = width + spacing
               y="0"
-              width={segmentWidth}
+              width="18"
               height="15"
               className={cn(
                 'transition-colors duration-200',
@@ -80,8 +70,8 @@ const TruckSVG = ({
                 !disabled &&
                   'cursor-pointer hover:fill-primary/80 dark:hover:fill-primary/50'
               )}
-              // Ao clicar, passamos o valor do segmento (1 a 10)
-              onClick={() => !disabled && onSegmentClick(segment)}
+              // When clicking, we pass the "visual" segment number from right to left
+              onClick={() => !disabled && onSegmentClick(11 - segment)}
             />
           );
         })}
@@ -89,6 +79,7 @@ const TruckSVG = ({
     </svg>
   );
 };
+
 
 export const OccupancySelector = ({
   initialValue = 0,
@@ -101,9 +92,9 @@ export const OccupancySelector = ({
     setOccupancy(initialValue);
   }, [initialValue]);
 
-  const handleSegmentClick = (segment: number) => {
-    // O valor do segmento (1 a 10) vira a porcentagem (10 a 100)
-    const newOccupancy = segment * 10;
+  const handleSegmentClick = (segmentNumber: number) => {
+    // segmentNumber is from 1 (cab) to 10 (door)
+    const newOccupancy = segmentNumber * 10;
     setOccupancy(newOccupancy);
     onValueChange(newOccupancy);
   };
@@ -116,15 +107,10 @@ export const OccupancySelector = ({
       </div>
       <div
         className={cn(
-          'rounded-lg border bg-card p-2 transform -scale-x-100', // Inverte o SVG visualmente
+          'rounded-lg border bg-card p-2',
           disabled && 'opacity-50'
         )}
       >
-        {/*
-          Como o SVG está invertido com -scale-x-100, a cabine fica à direita e a porta à esquerda.
-          A lógica de desenho e clique dentro do SVG pode ser 'normal' (esquerda para direita),
-          e a transformação visual cuida da apresentação correta.
-        */}
         <TruckSVG
           occupancy={occupancy}
           onSegmentClick={handleSegmentClick}
