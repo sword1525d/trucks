@@ -117,6 +117,7 @@ export type Segment = {
     color: string;
     travelTime: string;
     stopTime: string;
+    distance?: string;
 }
 
 type UserData = {
@@ -140,10 +141,11 @@ const processRunSegments = (run: AggregatedRun): Segment[] => {
     if (!run.locationHistory || run.locationHistory.length === 0) return [];
     
     const sortedLocations = [...run.locationHistory].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
-    const sortedStops = [...run.stops].filter(s => s.status !== 'CANCELED').sort((a, b) => (a.arrivalTime?.seconds || 0) - (b.arrivalTime?.seconds || 0));
+    const sortedStops = [...run.stops].filter(s => s.status === 'COMPLETED').sort((a, b) => (a.arrivalTime?.seconds || 0) - (b.arrivalTime?.seconds || 0));
 
     const segments: Segment[] = [];
     let lastDepartureTime = run.startTime;
+    let lastMileage = run.startMileage;
 
     for(let i = 0; i < sortedStops.length; i++) {
         const stop = sortedStops[i];
@@ -151,6 +153,8 @@ const processRunSegments = (run: AggregatedRun): Segment[] => {
 
         const stopArrivalTime = new Date(stop.arrivalTime.seconds * 1000);
         const stopDepartureTime = stop.departureTime ? new Date(stop.departureTime.seconds * 1000) : null;
+        
+        const segmentDistance = (stop.mileageAtStop && lastMileage) ? stop.mileageAtStop - lastMileage : null;
 
         const segmentPath = sortedLocations
             .filter(loc => {
@@ -165,10 +169,14 @@ const processRunSegments = (run: AggregatedRun): Segment[] => {
             color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
             travelTime: formatTimeDiff(new Date(lastDepartureTime.seconds * 1000), stopArrivalTime),
             stopTime: stopDepartureTime ? formatTimeDiff(stopArrivalTime, stopDepartureTime) : 'Em andamento',
+            distance: segmentDistance !== null ? `${segmentDistance.toFixed(1)} km` : 'N/A'
         });
         
         if (stop.departureTime) {
             lastDepartureTime = stop.departureTime;
+        }
+        if (stop.mileageAtStop) {
+            lastMileage = stop.mileageAtStop;
         }
     }
 

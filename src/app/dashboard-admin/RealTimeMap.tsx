@@ -4,7 +4,7 @@ import Map, { Marker, Source, Layer, MapRef, Popup } from 'react-map-gl';
 import { LngLatBounds } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { type Segment } from './page';
-import { Truck, Timer, Route } from 'lucide-react';
+import { Truck, Timer, Route, Milestone } from 'lucide-react';
 import type { LineLayer } from 'react-map-gl';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -12,9 +12,10 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 interface RealTimeMapProps {
   segments: Segment[];
   fullLocationHistory: { latitude: number; longitude: number }[];
+  vehicleId: string;
 }
 
-const RealTimeMap = ({ segments, fullLocationHistory }: RealTimeMapProps) => {
+const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapProps) => {
   const mapRef = useRef<MapRef>(null);
   const [showPopup, setShowPopup] = useState<Segment | null>(null);
 
@@ -119,6 +120,7 @@ const RealTimeMap = ({ segments, fullLocationHistory }: RealTimeMapProps) => {
                 <p className="font-bold">{showPopup.label}</p>
                 <p className="flex items-center gap-1"><Route className="h-3 w-3" />Viagem: {showPopup.travelTime}</p>
                 <p className="flex items-center gap-1"><Timer className="h-3 w-3" />Parada: {showPopup.stopTime}</p>
+                 {showPopup.distance && <p className="flex items-center gap-1"><Milestone className="h-3 w-3" />Distância: {showPopup.distance}</p>}
             </div>
         </Popup>
       )}
@@ -130,8 +132,13 @@ const RealTimeMap = ({ segments, fullLocationHistory }: RealTimeMapProps) => {
           latitude={lastPosition.latitude}
           anchor="bottom"
         >
-          <div className="bg-primary rounded-full p-2 shadow-lg">
+          <div className="relative flex flex-col items-center">
+            <div className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-md -mt-8 shadow-lg whitespace-nowrap">
+              {vehicleId}
+            </div>
+            <div className="bg-primary rounded-full p-2 shadow-lg mt-1">
               <Truck className="h-5 w-5 text-primary-foreground" />
+            </div>
           </div>
         </Marker>
       )}

@@ -25,7 +25,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X, ArrowRight } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X, ArrowRight, Milestone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceStrict } from 'date-fns';
@@ -42,6 +42,7 @@ type Stop = {
   status: StopStatus;
   arrivalTime: FirebaseTimestamp | null;
   departureTime: FirebaseTimestamp | null;
+  mileageAtStop: number | null;
 };
 
 export type LocationPoint = {
@@ -55,6 +56,7 @@ export type Run = {
   driverName: string;
   vehicleId: string;
   startTime: FirebaseTimestamp;
+  startMileage: number;
   status: 'IN_PROGRESS';
   stops: Stop[];
   locationHistory?: LocationPoint[];
@@ -66,6 +68,7 @@ export type Segment = {
     color: string;
     travelTime: string;
     stopTime: string;
+    distance?: string;
 }
 
 type UserData = {
@@ -98,6 +101,7 @@ const processRunSegments = (run: Run): Segment[] => {
 
     const segments: Segment[] = [];
     let lastDepartureTime = run.startTime;
+    let lastMileage = run.startMileage;
 
     for(let i = 0; i < sortedStops.length; i++) {
         const stop = sortedStops[i];
@@ -105,6 +109,8 @@ const processRunSegments = (run: Run): Segment[] => {
 
         const stopArrivalTime = new Date(stop.arrivalTime.seconds * 1000);
         const stopDepartureTime = stop.departureTime ? new Date(stop.departureTime.seconds * 1000) : null;
+        
+        const segmentDistance = (stop.mileageAtStop && lastMileage) ? stop.mileageAtStop - lastMileage : null;
 
         const segmentPath = sortedLocations
             .filter(loc => {
@@ -119,6 +125,7 @@ const processRunSegments = (run: Run): Segment[] => {
             color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
             travelTime: formatTimeDiff(new Date(lastDepartureTime.seconds * 1000), stopArrivalTime),
             stopTime: stopDepartureTime ? formatTimeDiff(stopArrivalTime, stopDepartureTime) : 'Em andamento',
+            distance: segmentDistance !== null ? `${segmentDistance.toFixed(1)} km` : 'N/A'
         });
         
         if (stopDepartureTime) {
@@ -139,6 +146,9 @@ const processRunSegments = (run: Run): Segment[] => {
                 });
             }
         }
+        if (stop.mileageAtStop) {
+            lastMileage = stop.mileageAtStop;
+        }
     }
 
     return segments;
@@ -152,7 +162,7 @@ const TrackingPage = () => {
   const [user, setUser] = useState<UserData | null>(null);
   const [activeRuns, setActiveRuns] = useState<Run[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedRun, setSelectedRun] = useState<Run | null>(null);
+  const [selectedRunForMap, setSelectedRunForMap] = useState<Run | null>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -180,10 +190,9 @@ const TrackingPage = () => {
         const sortedRuns = runs.sort((a, b) => a.startTime.seconds - b.startTime.seconds);
         setActiveRuns(sortedRuns);
         
-        // Atualiza o 'selectedRun' se ele ainda estiver na lista de corridas ativas
-        if (selectedRun) {
-            const updatedRun = sortedRuns.find(r => r.id === selectedRun.id);
-            setSelectedRun(updatedRun || null);
+        if (selectedRunForMap) {
+            const updatedRun = sortedRuns.find(r => r.id === selectedRunForMap.id);
+            setSelectedRunForMap(updatedRun || null);
         }
 
         setIsLoading(false);
@@ -194,15 +203,15 @@ const TrackingPage = () => {
     });
     
     return () => unsubscribeRuns();
-  }, [firestore, user, toast, selectedRun]);
+  }, [firestore, user, toast, selectedRunForMap]);
 
 
   if (isLoading) {
      return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const mapSegments = selectedRun ? processRunSegments(selectedRun) : [];
-  const fullLocationHistory = selectedRun?.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
+  const mapSegments = selectedRunForMap ? processRunSegments(selectedRunForMap) : [];
+  const fullLocationHistory = selectedRunForMap?.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
 
   return (
     <div className="flex-1 space-y-4">
@@ -219,16 +228,16 @@ const TrackingPage = () => {
             </Card>
         ) : (
           <Accordion type="single" collapsible className="w-full space-y-4" defaultValue={activeRuns[0]?.id}>
-            {activeRuns.map(run => <RunAccordionItem key={run.id} run={run} onViewRoute={() => setSelectedRun(run)} />)}
+            {activeRuns.map(run => <RunAccordionItem key={run.id} run={run} onViewRoute={() => setSelectedRunForMap(run)} />)}
           </Accordion>
         )}
       
-      <Dialog open={selectedRun !== null} onOpenChange={(isOpen) => !isOpen && setSelectedRun(null)}>
+      <Dialog open={selectedRunForMap !== null} onOpenChange={(isOpen) => !isOpen && setSelectedRunForMap(null)}>
         <DialogContent className="max-w-4xl h-[80vh]">
-          {selectedRun && (
+          {selectedRunForMap && (
              <>
               <DialogHeader>
-                <DialogTitle>Trajeto da Corrida - {selectedRun.driverName} ({selectedRun.vehicleId})</DialogTitle>
+                <DialogTitle>Trajeto da Corrida - {selectedRunForMap.driverName} ({selectedRunForMap.vehicleId})</DialogTitle>
                 <DialogDescription>
                   Visualização do trajeto completo da corrida, segmentado por paradas.
                 </DialogDescription>
@@ -237,7 +246,7 @@ const TrackingPage = () => {
                   <RealTimeMap 
                       segments={mapSegments} 
                       fullLocationHistory={fullLocationHistory} 
-                      vehicleId={selectedRun.vehicleId}
+                      vehicleId={selectedRunForMap.vehicleId}
                   />
               </div>
             </>
