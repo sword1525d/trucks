@@ -7,9 +7,8 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, PlayCircle, Loader2, Fuel, ChevronDown } from 'lucide-react';
+import { LogOut, PlayCircle, Loader2, Fuel } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 // Tipos para os dados do Firebase
 type UserData = {
@@ -213,29 +212,20 @@ export default function DashboardTruckPage() {
         </section>
         
         <section className="mt-8">
-            <Accordion type="single" collapsible>
-              <AccordionItem value="item-1" className="border-none">
-                <AccordionTrigger className="justify-center text-muted-foreground hover:no-underline text-sm py-2">
-                  Ver Status da Frota
-                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 ml-1" />
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="bg-card rounded-xl p-4 shadow-sm border mt-2">
-                      {isLoading ? (
-                          <div className="text-center text-muted-foreground flex items-center justify-center p-4">
-                              <Loader2 className="w-5 h-5 mr-2 animate-spin"/> Carregando...
-                          </div>
-                      ) : vehicles.length === 0 ? (
-                          <p className="text-center text-muted-foreground p-4">Nenhum caminhão encontrado.</p>
-                      ) : (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                              {vehicles.map(v => <VehicleCard key={v.id} vehicle={v} />)}
-                          </div>
-                      )}
+          <h2 className="text-lg font-semibold text-center mb-2 text-muted-foreground">Status da Frota</h2>
+          <div className="bg-card rounded-xl p-4 shadow-sm border mt-2">
+              {isLoading ? (
+                  <div className="text-center text-muted-foreground flex items-center justify-center p-4">
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin"/> Carregando...
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+              ) : vehicles.length === 0 ? (
+                  <p className="text-center text-muted-foreground p-4">Nenhum caminhão encontrado.</p>
+              ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {vehicles.map(v => <VehicleCard key={v.id} vehicle={v} />)}
+                  </div>
+              )}
+          </div>
         </section>
       </main>
     </div>
