@@ -102,6 +102,7 @@ export type AggregatedRun = {
     stops: Stop[];
     locationHistory: LocationPoint[];
     originalRuns: Run[];
+    startMileage: number;
 };
 
 export type FirestoreUser = {
@@ -294,6 +295,7 @@ const HistoryPage = () => {
                 stops: allStops,
                 locationHistory: allLocations,
                 originalRuns: runs,
+                startMileage: startMileage
             });
         });
         
@@ -553,6 +555,9 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: AggregatedRun | null,
                                 const previousStop = index > 0 ? run.stops[index - 1] : null;
                                 const segmentStartTime = previousStop ? previousStop.departureTime : run.startTime;
                                 
+                                const startMileage = previousStop?.mileageAtStop ?? run.startMileage;
+                                const segmentDistance = stop.mileageAtStop ? stop.mileageAtStop - startMileage : null;
+
                                 return (
                                     <Card key={index} className="bg-muted/50">
                                         <CardHeader className="pb-3">
@@ -572,7 +577,7 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: AggregatedRun | null,
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Route className="h-4 w-4 text-muted-foreground" />
-                                                    <p className="font-semibold">KM: {stop.mileageAtStop || 'N/A'}</p>
+                                                    <p className="font-semibold">KM: {segmentDistance !== null ? `${segmentDistance.toFixed(1)}` : 'N/A'}</p>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Car className="h-4 w-4 text-muted-foreground" />
@@ -607,5 +612,3 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: AggregatedRun | null,
 }
 
 export default HistoryPage;
-
-    
