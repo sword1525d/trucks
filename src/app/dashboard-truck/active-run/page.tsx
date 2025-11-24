@@ -177,12 +177,12 @@ function ActiveRunContent() {
           });
         }
       } else {
-        toast({ variant: 'destructive', title: 'Erro', description: 'Acompanhamento não encontrado.' });
+        toast({ variant: 'destructive', title: 'Erro', description: 'Trajeto não encontrado.' });
         router.push('/dashboard-truck');
       }
     } catch (error) {
-      console.error("Erro ao buscar acompanhamento:", error);
-      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível carregar os dados do acompanhamento.' });
+      console.error("Erro ao buscar trajeto:", error);
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível carregar os dados do trajeto.' });
     } finally {
       setIsLoading(false);
     }
@@ -310,12 +310,12 @@ function ActiveRunContent() {
             endMileage: stop.mileageAtStop
         });
 
-        toast({ title: 'Acompanhamento Finalizado!', description: 'Sua rota foi concluída com sucesso.' });
+        toast({ title: 'Trajeto Finalizado!', description: 'Sua rota foi concluída com sucesso.' });
         router.push('/dashboard-truck');
 
     } catch (error) {
-        console.error("Erro ao finalizar acompanhamento: ", error);
-        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível finalizar o acompanhamento.' });
+        console.error("Erro ao finalizar trajeto: ", error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível finalizar o trajeto.' });
     }
   }
 
@@ -340,7 +340,7 @@ function ActiveRunContent() {
                 <ArrowLeft />
             </Button>
             <div>
-                <h1 className="text-2xl font-bold">Acompanhamento Ativo</h1>
+                <h1 className="text-2xl font-bold">Trajeto Ativo</h1>
                 <p className="text-muted-foreground">Veículo: {run.vehicleId} | Motorista: {run.driverName}</p>
             </div>
         </div>
@@ -424,12 +424,12 @@ function ActiveRunContent() {
               <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
                   <CardHeader>
                       <CardTitle>Corrida Concluída!</CardTitle>
-                      <CardDescription>A parada foi finalizada. Você pode encerrar o acompanhamento.</CardDescription>
+                      <CardDescription>A parada foi finalizada. Você pode encerrar o trajeto.</CardDescription>
                   </CardHeader>
                   <CardFooter>
                       <AlertDialog>
                           <AlertDialogTrigger asChild>
-                              <Button className="w-full sm:w-auto">Finalizar Acompanhamento</Button>
+                              <Button className="w-full sm:w-auto">Finalizar Trajeto</Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                               <AlertDialogHeader>

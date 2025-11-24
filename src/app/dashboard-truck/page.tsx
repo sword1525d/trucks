@@ -27,7 +27,7 @@ type Vehicle = {
   model: string;
   isTruck: boolean;
   imageUrl?: string;
-  status?: 'PARADO' | 'EM CORRIDA' | 'EM ACOMPANHAMENTO';
+  status?: 'PARADO' | 'EM CORRIDA' | 'EM TRAJETO';
   driverName?: string;
 };
 
@@ -36,7 +36,7 @@ const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
     const getStatusColorClass = () => {
         switch (vehicle.status) {
             case 'EM CORRIDA': return 'bg-red-500';
-            case 'EM ACOMPANHAMENTO': return 'bg-orange-500';
+            case 'EM TRAJETO': return 'bg-orange-500';
             case 'PARADO':
             default:
                 return 'bg-green-500';
@@ -46,7 +46,7 @@ const VehicleCard = ({ vehicle }: { vehicle: Vehicle }) => {
     const getCardBgColorClass = () => {
         switch (vehicle.status) {
             case 'EM CORRIDA': return 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800';
-            case 'EM ACOMPANHAMENTO': return 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800';
+            case 'EM TRAJETO': return 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800';
             case 'PARADO':
             default:
                 return 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800';
@@ -204,7 +204,7 @@ export default function DashboardTruckPage() {
         <section className="space-y-4">
             <Button className="w-full h-24 text-xl font-bold" onClick={handleStartOrContinueRun} variant="secondary">
                 <PlayCircle className="mr-3 h-8 w-8"/>
-                {activeRunId ? 'Continuar Acompanhamento' : 'Iniciar Acompanhamento'}
+                {activeRunId ? 'Continuar Trajeto' : 'Iniciar Trajeto'}
             </Button>
             <Button className="w-full h-16 text-lg" variant="outline" onClick={() => router.push('/dashboard-truck/refuel')}>
                 <Fuel className="mr-3"/>

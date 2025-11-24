@@ -122,13 +122,13 @@ export default function TruckRunPage() {
       
       const docRef = await addDoc(runsCol, newRun);
 
-      toast({ title: 'Sucesso', description: 'Acompanhamento iniciado! Redirecionando...' });
+      toast({ title: 'Sucesso', description: 'Trajeto iniciado! Redirecionando...' });
       
       router.push(`/dashboard-truck/active-run?id=${docRef.id}`);
 
     } catch(error) {
        console.error("Erro ao iniciar corrida: ", error);
-       toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível iniciar o acompanhamento.' });
+       toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível iniciar o trajeto.' });
     } finally {
         setIsSubmitting(false);
     }
@@ -150,7 +150,7 @@ export default function TruckRunPage() {
           <Button variant="outline" size="icon" onClick={() => router.push('/dashboard-truck')}>
             <ArrowLeft />
           </Button>
-          <h1 className="text-2xl font-bold">Iniciar Acompanhamento</h1>
+          <h1 className="text-2xl font-bold">Iniciar Trajeto</h1>
         </div>
         
         <section>
@@ -204,7 +204,7 @@ export default function TruckRunPage() {
                 disabled={!selectedVehicle || !mileage || !stopPoint || isSubmitting}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                INICIAR ACOMPANHAMENTO
+                INICIAR TRAJETO
               </Button>
            </div>
         </footer>
