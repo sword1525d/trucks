@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 type UserData = {
@@ -48,8 +48,7 @@ export default function TruckRunPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState('');
   const [mileage, setMileage] = useState('');
-  const [stopPoints, setStopPoints] = useState<StopPoint[]>([]);
-  const [newPoint, setNewPoint] = useState('');
+  const [stopPoint, setStopPoint] = useState<StopPoint>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -92,34 +91,9 @@ export default function TruckRunPage() {
     fetchVehicles();
   }, [firestore, user, toast]);
 
-  const handleAddPoint = () => {
-    if (newPoint && !stopPoints.includes(newPoint)) {
-      setStopPoints(prev => [...prev, newPoint]);
-      setNewPoint('');
-    } else if (stopPoints.includes(newPoint)) {
-      toast({ variant: "destructive", description: "Este ponto já foi adicionado." });
-    }
-  };
-
-  const handleRemovePoint = (indexToRemove: number) => {
-    setStopPoints(prev => prev.filter((_, index) => index !== indexToRemove));
-  };
-
-  const handleMovePoint = (index: number, direction: 'up' | 'down') => {
-    if (direction === 'up' && index > 0) {
-      const newPoints = [...stopPoints];
-      [newPoints[index - 1], newPoints[index]] = [newPoints[index], newPoints[index - 1]];
-      setStopPoints(newPoints);
-    } else if (direction === 'down' && index < stopPoints.length - 1) {
-      const newPoints = [...stopPoints];
-      [newPoints[index + 1], newPoints[index]] = [newPoints[index], newPoints[index + 1]];
-      setStopPoints(newPoints);
-    }
-  };
-  
   const handleStartRun = async () => {
-    if(!firestore || !user || !selectedVehicle || !mileage || stopPoints.length === 0){
-       toast({ variant: 'destructive', title: 'Erro', description: 'Preencha todos os campos e adicione pelo menos um ponto de parada.' });
+    if(!firestore || !user || !selectedVehicle || !mileage || !stopPoint){
+       toast({ variant: 'destructive', title: 'Erro', description: 'Preencha todos os campos para iniciar a corrida.' });
        return;
     }
     setIsSubmitting(true);
@@ -132,15 +106,16 @@ export default function TruckRunPage() {
         startMileage: Number(mileage),
         startTime: serverTimestamp(),
         status: 'IN_PROGRESS',
-        stops: stopPoints.map(pointName => ({
-          name: pointName,
+        stops: [{
+          name: stopPoint,
           status: 'PENDING',
           arrivalTime: null,
           departureTime: null,
           collectedOccupiedCars: null,
           collectedEmptyCars: null,
           mileageAtStop: null,
-        })),
+          occupancy: null,
+        }],
         endTime: null,
         endMileage: null,
       };
@@ -179,7 +154,7 @@ export default function TruckRunPage() {
         </div>
         
         <section>
-          <h2 className="text-xl font-semibold text-foreground mb-4">Informações do Veículo</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Informações da Corrida</h2>
           <div className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="veiculo">Veículo</Label>
@@ -202,46 +177,22 @@ export default function TruckRunPage() {
         <Separator />
 
         <section>
-           <h2 className="text-xl font-semibold text-foreground mb-4">Pontos de Parada</h2>
+           <h2 className="text-xl font-semibold text-foreground mb-4">Destino</h2>
             <div className="space-y-4">
                 <div className="space-y-1">
-                  <Label htmlFor="novo-ponto">Adicionar Ponto</Label>
-                  <Select value={newPoint} onValueChange={setNewPoint}>
-                    <SelectTrigger id="novo-ponto">
-                      <SelectValue placeholder="Selecione um ponto da lista" />
+                  <Label htmlFor="stop-point">Ponto de Parada</Label>
+                  <Select value={stopPoint} onValueChange={setStopPoint}>
+                    <SelectTrigger id="stop-point">
+                      <SelectValue placeholder="Selecione o destino da corrida" />
                     </SelectTrigger>
                     <SelectContent>
                       {PREDEFINED_STOP_POINTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                <Button className="w-full" onClick={handleAddPoint}><Plus className="mr-2 h-4 w-4"/> Adicionar Ponto</Button>
             </div>
         </section>
 
-        {stopPoints.length > 0 && (
-          <section>
-            <h3 className="text-lg font-semibold text-muted-foreground mb-3">Rota ({stopPoints.length})</h3>
-            <ul className="space-y-2">
-                {stopPoints.map((point, index) => (
-                    <li key={index} className="flex items-center justify-between p-3 bg-card rounded-lg shadow-sm group border">
-                       <span className="font-medium text-card-foreground">{index + 1}. {point}</span>
-                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMovePoint(index, 'up')} disabled={index === 0}>
-                              <ArrowUp className="h-4 w-4"/>
-                          </Button>
-                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMovePoint(index, 'down')} disabled={index === stopPoints.length - 1}>
-                              <ArrowDown className="h-4 w-4"/>
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemovePoint(index)}>
-                              <Trash2 className="text-destructive h-4 w-4"/>
-                          </Button>
-                       </div>
-                    </li>
-                ))}
-            </ul>
-          </section>
-        )}
         <div className="h-24"></div>
       </main>
 
@@ -250,7 +201,7 @@ export default function TruckRunPage() {
               <Button 
                 className="w-full text-lg h-14" 
                 onClick={handleStartRun}
-                disabled={!selectedVehicle || !mileage || stopPoints.length === 0 || isSubmitting}
+                disabled={!selectedVehicle || !mileage || !stopPoint || isSubmitting}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 INICIAR ACOMPANHAMENTO
