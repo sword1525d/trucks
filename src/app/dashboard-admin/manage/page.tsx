@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useFirebase } from '@/firebase';
@@ -88,7 +87,7 @@ const AdminManagementPage = () => {
                 shift: data.shift
             } as FirestoreUser
         });
-        setUsers(userList);
+        setUsers(userList.sort((a,b) => a.name.localeCompare(b.name)));
 
     } catch (error) {
         console.error("Error fetching data: ", error);
@@ -97,17 +96,25 @@ const AdminManagementPage = () => {
         setIsLoading(false);
     }
   }, [firestore, session, toast]);
+  
+  const fetchVehicles = useCallback(async () => {
+       if (!firestore || !session) return;
+       try {
+           const vehiclesCol = collection(firestore, `companies/${session.companyId}/sectors/${session.sectorId}/vehicles`);
+           const vehicleSnapshot = await getDocs(vehiclesCol);
+            const vehicleList = vehicleSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreVehicle)).filter(v => v.isTruck);
+            setVehicles(vehicleList.sort((a, b) => a.id.localeCompare(b.id)));
+       } catch (error) {
+            console.error("Error fetching vehicles:", error);
+            toast({ variant: "destructive", title: "Erro ao buscar veículos" });
+       }
+  }, [firestore, session, toast]);
+
 
   useEffect(() => {
     if(session) {
       fetchData();
-
-      // Listener for vehicles
-      const vehiclesCol = collection(firestore, `companies/${session.companyId}/sectors/${session.sectorId}/vehicles`);
-      const unsubscribeVehicles = onSnapshot(vehiclesCol, (snapshot) => {
-          const vehicleList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreVehicle)).filter(v => v.isTruck);
-          setVehicles(vehicleList);
-      });
+      fetchVehicles();
 
       // Listener for active runs
       const runsCol = collection(firestore, `companies/${session.companyId}/sectors/${session.sectorId}/runs`);
@@ -121,11 +128,10 @@ const AdminManagementPage = () => {
       });
       
       return () => {
-          unsubscribeVehicles();
           unsubscribeRuns();
       }
     }
-  }, [session, firestore, fetchData]);
+  }, [session, firestore, fetchData, fetchVehicles]);
 
 
   const handleDelete = async (type: 'user' | 'vehicle', id: string) => {
@@ -138,7 +144,11 @@ const AdminManagementPage = () => {
     try {
       await deleteDoc(docRef);
       toast({ title: 'Sucesso', description: `${type === 'user' ? 'Usuário' : 'Veículo'} deletado com sucesso.` });
-      // Data will refresh via onSnapshot listeners
+      if (type === 'user') {
+        fetchData();
+      } else {
+        fetchVehicles();
+      }
     } catch (error) {
       console.error(`Error deleting ${type}:`, error);
       toast({ variant: 'destructive', title: 'Erro', description: `Não foi possível deletar o ${type}.` });
@@ -170,7 +180,7 @@ const AdminManagementPage = () => {
           <Card>
             <CardHeader>
               <CardTitle>Usuários</CardTitle>
-              <CardDescription>Edite ou remova usuários existentes.</CardDescription>
+              <CardDescription>Adicione, edite ou remova usuários existentes.</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -192,7 +202,7 @@ const AdminManagementPage = () => {
           <Card>
             <CardHeader>
               <CardTitle>Caminhões</CardTitle>
-              <CardDescription>Edite, remova ou gerencie a manutenção dos caminhões.</CardDescription>
+              <CardDescription>Adicione, edite, remova ou gerencie a manutenção dos caminhões.</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -204,7 +214,7 @@ const AdminManagementPage = () => {
                   vehicles={vehicles}
                   activeRuns={activeRuns}
                   onDelete={handleDelete}
-                  onUpdate={fetchData}
+                  onUpdate={fetchVehicles}
                   session={session}
                 />
               )}
@@ -217,5 +227,3 @@ const AdminManagementPage = () => {
 };
 
 export default AdminManagementPage;
-
-    

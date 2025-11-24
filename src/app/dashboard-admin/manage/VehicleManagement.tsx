@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -37,7 +36,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useFirebase } from '@/firebase';
-import { doc, updateDoc, collection, addDoc, getDocs, orderBy, query, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, getDocs, orderBy, query, serverTimestamp, Timestamp, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Edit, Trash2, Wrench, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -54,8 +53,14 @@ const maintenanceStartSchema = z.object({
   notes: z.string().optional(),
 });
 
+const vehicleCreateSchema = z.object({
+  vehicleId: z.string().min(1, 'ID do Veículo (placa) é obrigatório'),
+  model: z.string().min(1, 'Modelo é obrigatório'),
+});
+
 type VehicleEditForm = z.infer<typeof vehicleEditSchema>;
 type MaintenanceStartForm = z.infer<typeof maintenanceStartSchema>;
+type VehicleCreateForm = z.infer<typeof vehicleCreateSchema>;
 
 interface VehicleManagementProps {
   vehicles: FirestoreVehicle[];
@@ -70,6 +75,7 @@ export const VehicleManagement = ({ vehicles, activeRuns, onDelete, onUpdate, se
   const { toast } = useToast();
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isMaintenanceDialogOpen, setIsMaintenanceDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 
@@ -81,6 +87,11 @@ export const VehicleManagement = ({ vehicles, activeRuns, onDelete, onUpdate, se
 
   const editForm = useForm<VehicleEditForm>({ resolver: zodResolver(vehicleEditSchema) });
   const maintenanceForm = useForm<MaintenanceStartForm>({ resolver: zodResolver(maintenanceStartSchema) });
+  const createForm = useForm<VehicleCreateForm>({
+    resolver: zodResolver(vehicleCreateSchema),
+    defaultValues: { vehicleId: '', model: '' }
+  });
+
 
   const handleEditClick = (vehicle: FirestoreVehicle) => {
     setSelectedVehicle(vehicle);
@@ -110,6 +121,28 @@ export const VehicleManagement = ({ vehicles, activeRuns, onDelete, onUpdate, se
         toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível carregar o histórico de manutenções.' });
     } finally {
         setIsLoadingHistory(false);
+    }
+  }
+
+  const handleCreateSubmit = async (data: VehicleCreateForm) => {
+    if (!firestore) return;
+    setIsSubmitting(true);
+    try {
+        const vehicleRef = doc(firestore, `companies/${session.companyId}/sectors/${session.sectorId}/vehicles`, data.vehicleId);
+        await setDoc(vehicleRef, { 
+            model: data.model, 
+            isTruck: true, // Only trucks are managed here
+            status: 'PARADO',
+            imageUrl: ''
+        });
+        toast({ title: 'Sucesso', description: 'Caminhão cadastrado!' });
+        onUpdate();
+        setIsCreateDialogOpen(false);
+    } catch (error: any) {
+        console.error("Error creating vehicle:", error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível cadastrar o caminhão.' });
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
@@ -200,6 +233,9 @@ export const VehicleManagement = ({ vehicles, activeRuns, onDelete, onUpdate, se
 
   return (
     <>
+      <div className="flex justify-end mb-4">
+        <Button onClick={() => { createForm.reset(); setIsCreateDialogOpen(true); }}>Adicionar Caminhão</Button>
+      </div>
       <div className="border rounded-md">
         <Table>
           <TableHeader>
@@ -260,6 +296,7 @@ export const VehicleManagement = ({ vehicles, activeRuns, onDelete, onUpdate, se
         </Table>
       </div>
 
+      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -285,6 +322,38 @@ export const VehicleManagement = ({ vehicles, activeRuns, onDelete, onUpdate, se
         </DialogContent>
       </Dialog>
       
+      {/* Create Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Adicionar Novo Caminhão</DialogTitle>
+                  <DialogDescription>Preencha os dados para cadastrar um novo caminhão no setor.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={createForm.handleSubmit(handleCreateSubmit)} className="space-y-4">
+                  <div>
+                      <Label htmlFor="vehicleId">Placa do Caminhão</Label>
+                      <Input id="vehicleId" {...createForm.register('vehicleId')} placeholder="ABC-1234"/>
+                      {createForm.formState.errors.vehicleId && <p className="text-sm text-destructive mt-1">{createForm.formState.errors.vehicleId.message}</p>}
+                  </div>
+                  <div>
+                      <Label htmlFor="modelCreate">Modelo do Caminhão</Label>
+                      <Input id="modelCreate" {...createForm.register('model')} placeholder="Ex: VW Constellation"/>
+                      {createForm.formState.errors.model && <p className="text-sm text-destructive mt-1">{createForm.formState.errors.model.message}</p>}
+                  </div>
+                   <DialogFooter>
+                      <DialogClose asChild>
+                          <Button type="button" variant="outline">Cancelar</Button>
+                      </DialogClose>
+                      <Button type="submit" disabled={isSubmitting}>
+                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Salvar
+                      </Button>
+                  </DialogFooter>
+              </form>
+          </DialogContent>
+      </Dialog>
+
+      {/* Maintenance Dialog */}
        <Dialog open={isMaintenanceDialogOpen} onOpenChange={setIsMaintenanceDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -317,6 +386,7 @@ export const VehicleManagement = ({ vehicles, activeRuns, onDelete, onUpdate, se
         </DialogContent>
       </Dialog>
       
+      {/* History Dialog */}
       <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
