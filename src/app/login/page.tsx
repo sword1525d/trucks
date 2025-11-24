@@ -271,8 +271,8 @@ export default function LoginPage() {
         </div>
 
         <div className="absolute bottom-6 flex items-center justify-center gap-4">
-            <Image src="/logo_projetos.svg" alt="Logo Projetos" width={60} height={20} className="opacity-50" />
-            <Image src="/divmao.png" alt="Selo de Desenvolvimento" width={80} height={25} className="opacity-50" />
+            <Image src="/logo_projetos.svg" alt="Logo Projetos" width={60} height={20} className="opacity-100" />
+            <Image src="/divmao.png" alt="Selo de Desenvolvimento" width={80} height={25} className="opacity-100" />
         </div>
     </div>
 );
