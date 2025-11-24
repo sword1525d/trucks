@@ -549,43 +549,48 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: AggregatedRun | null,
                     </TabsList>
                     <TabsContent value="details" className="h-[calc(100%-40px)] overflow-y-auto">
                         <div className="space-y-4 p-1">
-                             {run.stops.filter(s => s.status === 'COMPLETED').map((stop, index) => (
-                                <Card key={index} className="bg-muted/50">
-                                    <CardHeader className="pb-3">
-                                        <CardTitle className="text-lg flex items-center gap-2">
-                                            <Milestone className="h-5 w-5 text-muted-foreground" />
-                                            {stop.name}
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                                            <div className="flex items-center gap-2">
-                                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                                <div>
-                                                    <p className="font-semibold">Chegada: {formatFirebaseTime(stop.arrivalTime)}</p>
-                                                    <p className="font-semibold">Saída: {formatFirebaseTime(stop.departureTime)}</p>
+                             {run.stops.filter(s => s.status === 'COMPLETED').map((stop, index) => {
+                                const previousStop = index > 0 ? run.stops[index - 1] : null;
+                                const segmentStartTime = previousStop ? previousStop.departureTime : run.startTime;
+                                
+                                return (
+                                    <Card key={index} className="bg-muted/50">
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-lg flex items-center gap-2">
+                                                <Milestone className="h-5 w-5 text-muted-foreground" />
+                                                {stop.name}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="font-semibold">Início: {formatFirebaseTime(segmentStartTime)}</p>
+                                                        <p className="font-semibold">Fim: {formatFirebaseTime(stop.arrivalTime)}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Route className="h-4 w-4 text-muted-foreground" />
+                                                    <p className="font-semibold">KM: {stop.mileageAtStop || 'N/A'}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Car className="h-4 w-4 text-muted-foreground" />
+                                                    <p className="font-semibold">Ocupados: {stop.collectedOccupiedCars ?? 'N/A'}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Package className="h-4 w-4 text-muted-foreground" />
+                                                    <p className="font-semibold">Vazios: {stop.collectedEmptyCars ?? 'N/A'}</p>
+                                                </div>
+                                                 <div className="flex items-center gap-2">
+                                                    <Warehouse className="h-4 w-4 text-muted-foreground" />
+                                                    <p className="font-semibold">Ocupação: {stop.occupancy ?? 'N/A'}%</p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <Route className="h-4 w-4 text-muted-foreground" />
-                                                <p className="font-semibold">KM: {stop.mileageAtStop || 'N/A'}</p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Car className="h-4 w-4 text-muted-foreground" />
-                                                <p className="font-semibold">Ocupados: {stop.collectedOccupiedCars ?? 'N/A'}</p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Package className="h-4 w-4 text-muted-foreground" />
-                                                <p className="font-semibold">Vazios: {stop.collectedEmptyCars ?? 'N/A'}</p>
-                                            </div>
-                                             <div className="flex items-center gap-2">
-                                                <Warehouse className="h-4 w-4 text-muted-foreground" />
-                                                <p className="font-semibold">Ocupação: {stop.occupancy ?? 'N/A'}%</p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                        </CardContent>
+                                    </Card>
+                                )
+                            })}
                         </div>
                     </TabsContent>
                     <TabsContent value="map" className="h-[calc(100%-40px)] bg-muted rounded-md">
