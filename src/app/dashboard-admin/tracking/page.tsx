@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
@@ -26,7 +25,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceStrict } from 'date-fns';
@@ -153,7 +152,7 @@ const TrackingPage = () => {
   const [user, setUser] = useState<UserData | null>(null);
   const [activeRuns, setActiveRuns] = useState<Run[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedRunIdForMap, setSelectedRunIdForMap] = useState<string | null>(null);
+  const [selectedRun, setSelectedRun] = useState<Run | null>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -180,6 +179,13 @@ const TrackingPage = () => {
         const runs: Run[] = runsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
         const sortedRuns = runs.sort((a, b) => a.startTime.seconds - b.startTime.seconds);
         setActiveRuns(sortedRuns);
+        
+        // Atualiza o 'selectedRun' se ele ainda estiver na lista de corridas ativas
+        if (selectedRun) {
+            const updatedRun = sortedRuns.find(r => r.id === selectedRun.id);
+            setSelectedRun(updatedRun || null);
+        }
+
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching active runs: ", error);
@@ -188,20 +194,15 @@ const TrackingPage = () => {
     });
     
     return () => unsubscribeRuns();
-  }, [firestore, user, toast]);
-
-  const selectedRunForMap = useMemo(() => {
-    if (!selectedRunIdForMap) return null;
-    return activeRuns.find(run => run.id === selectedRunIdForMap) || null;
-  }, [selectedRunIdForMap, activeRuns]);
+  }, [firestore, user, toast, selectedRun]);
 
 
   if (isLoading) {
      return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const mapSegments = selectedRunForMap ? processRunSegments(selectedRunForMap) : [];
-  const fullLocationHistory = selectedRunForMap?.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
+  const mapSegments = selectedRun ? processRunSegments(selectedRun) : [];
+  const fullLocationHistory = selectedRun?.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
 
   return (
     <div className="flex-1 space-y-4">
@@ -218,16 +219,16 @@ const TrackingPage = () => {
             </Card>
         ) : (
           <Accordion type="single" collapsible className="w-full space-y-4" defaultValue={activeRuns[0]?.id}>
-            {activeRuns.map(run => <RunAccordionItem key={run.id} run={run} onViewRoute={() => setSelectedRunIdForMap(run.id)} />)}
+            {activeRuns.map(run => <RunAccordionItem key={run.id} run={run} onViewRoute={() => setSelectedRun(run)} />)}
           </Accordion>
         )}
       
-      <Dialog open={selectedRunForMap !== null} onOpenChange={(isOpen) => !isOpen && setSelectedRunIdForMap(null)}>
+      <Dialog open={selectedRun !== null} onOpenChange={(isOpen) => !isOpen && setSelectedRun(null)}>
         <DialogContent className="max-w-4xl h-[80vh]">
-          {selectedRunForMap && (
+          {selectedRun && (
              <>
               <DialogHeader>
-                <DialogTitle>Trajeto da Corrida - {selectedRunForMap.driverName} ({selectedRunForMap.vehicleId})</DialogTitle>
+                <DialogTitle>Trajeto da Corrida - {selectedRun.driverName} ({selectedRun.vehicleId})</DialogTitle>
                 <DialogDescription>
                   Visualização do trajeto completo da corrida, segmentado por paradas.
                 </DialogDescription>
@@ -236,7 +237,7 @@ const TrackingPage = () => {
                   <RealTimeMap 
                       segments={mapSegments} 
                       fullLocationHistory={fullLocationHistory} 
-                      vehicleId={selectedRunForMap.vehicleId}
+                      vehicleId={selectedRun.vehicleId}
                   />
               </div>
             </>
@@ -314,27 +315,29 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: Run, onViewRoute: () => v
             const travelTime = arrivalTime ? formatTimeDiff(prevDepartureTime, arrivalTime) : null;
             const stopTime = arrivalTime && departureTime ? formatTimeDiff(arrivalTime, departureTime) : null;
 
+            const segmentStartTime = formatFirebaseTime(lastDepartureTime);
+            const segmentEndTime = formatFirebaseTime(stop.arrivalTime);
+
             if (departureTime) {
                 lastDepartureTime = stop.departureTime!;
             }
 
             return (
-              <div key={index} className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 rounded-md ${isCompleted ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800/20'}`}>
+              <div key={index} className={`flex flex-col sm:flex-row items-start gap-4 p-3 rounded-md ${isCompleted ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800/20'}`}>
                  <Icon className={`h-6 w-6 flex-shrink-0 mt-1 sm:mt-0 ${color}`} />
                  <div className="flex-1">
                    <p className="font-medium">{index + 1}. {stop.name}</p>
                    <p className={`text-xs ${isCompleted ? 'text-muted-foreground' : color}`}>{label}</p>
                  </div>
-                 <div className="w-full sm:w-auto flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                 <div className="w-full sm:w-auto grid grid-cols-2 sm:flex sm:flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     {travelTime && <span className='flex items-center gap-1'><Route className="h-3 w-3 text-gray-400"/> Viagem: <strong>{travelTime}</strong></span>}
                     {stopTime && <span className='flex items-center gap-1'><Timer className="h-3 w-3 text-gray-400"/> Parada: <strong>{stopTime}</strong></span>}
                  </div>
-                 {isCompleted && (
-                   <div className="text-right text-sm text-muted-foreground">
-                      <p>Chegada: {formatFirebaseTime(stop.arrivalTime)}</p>
-                      <p>Saída: {formatFirebaseTime(stop.departureTime)}</p>
-                   </div>
-                 )}
+                 <div className="text-right text-sm text-muted-foreground flex items-center gap-2">
+                      <span>{segmentStartTime}</span>
+                      <ArrowRight className="h-3 w-3" />
+                      <span>{segmentEndTime}</span>
+                 </div>
               </div>
             )
           })}
@@ -345,5 +348,3 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: Run, onViewRoute: () => v
 }
 
 export default TrackingPage;
-
-    
