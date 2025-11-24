@@ -189,7 +189,10 @@ const HistoryPage = () => {
     }, [allRuns, date, selectedShift, users]);
 
     const kpis = useMemo(() => {
-      const totalRuns = filteredRuns.length;
+      const totalRuns = filteredRuns.reduce((acc, run) => {
+        // Count each completed stop as a "run"
+        return acc + run.stops.filter(stop => stop.status === 'COMPLETED').length;
+      }, 0);
       const totalDistance = filteredRuns.reduce((acc, run) => {
         if (run.endMileage && run.startMileage) {
           return acc + (run.endMileage - run.startMileage);
@@ -202,7 +205,7 @@ const HistoryPage = () => {
         }
         return acc;
       }, 0);
-      const avgDurationMinutes = totalRuns > 0 ? (totalDurationSeconds / totalRuns / 60) : 0;
+      const avgDurationMinutes = filteredRuns.length > 0 ? (totalDurationSeconds / filteredRuns.length / 60) : 0;
       
       return { totalRuns, totalDistance, avgDurationMinutes };
     }, [filteredRuns]);
@@ -222,7 +225,8 @@ const HistoryPage = () => {
             if(run.endTime) {
                 const day = format(new Date(run.endTime.seconds * 1000), 'dd/MM');
                 if(dateMap.has(day)){
-                    dateMap.set(day, (dateMap.get(day) || 0) + 1);
+                    const completedStops = run.stops.filter(s => s.status === 'COMPLETED').length;
+                    dateMap.set(day, (dateMap.get(day) || 0) + completedStops);
                 }
             }
         });
@@ -262,16 +266,16 @@ const HistoryPage = () => {
             </div>
             
             <div className="grid gap-4 md:grid-cols-3">
-                <KpiCard title="Corridas Concluídas" value={kpis.totalRuns.toString()} />
+                <KpiCard title="Paradas Concluídas" value={kpis.totalRuns.toString()} />
                 <KpiCard title="Distância Total" value={`${kpis.totalDistance.toFixed(1)} km`} />
-                <KpiCard title="Duração Média" value={`${kpis.avgDurationMinutes.toFixed(0)} min`} />
+                <KpiCard title="Duração Média da Rota" value={`${kpis.avgDurationMinutes.toFixed(0)} min`} />
             </div>
             
             <div className="grid gap-6 lg:grid-cols-2">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Corridas por Dia</CardTitle>
-                        <CardDescription>Total de corridas concluídas por dia no período e turno selecionados.</CardDescription>
+                        <CardTitle>Paradas por Dia</CardTitle>
+                        <CardDescription>Total de paradas concluídas por dia no período e turno selecionados.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
@@ -309,8 +313,8 @@ const HistoryPage = () => {
             
             <Card>
                 <CardHeader>
-                    <CardTitle>Histórico de Corridas</CardTitle>
-                    <CardDescription>Lista de corridas concluídas no período e turno selecionados.</CardDescription>
+                    <CardTitle>Histórico de Rotas</CardTitle>
+                    <CardDescription>Lista de rotas concluídas no período e turno selecionados.</CardDescription>
                 </CardHeader>
                 <CardContent>
                 {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
@@ -326,7 +330,7 @@ const HistoryPage = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} onViewDetails={() => handleViewDetails(run)} />) : <TableRow><TableCell colSpan={5} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
+                                {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} onViewDetails={() => handleViewDetails(run)} />) : <TableRow><TableCell colSpan={5} className="text-center h-24">Nenhuma rota encontrada</TableCell></TableRow>}
                             </TableBody>
                         </Table>
                     </div>}
@@ -432,7 +436,7 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: Run | null, isOpen: b
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl h-[80vh]">
                 <DialogHeader>
-                    <DialogTitle>Detalhes da Corrida - {run.driverName} ({run.vehicleId})</DialogTitle>
+                    <DialogTitle>Detalhes da Rota - {run.driverName} ({run.vehicleId})</DialogTitle>
                     <DialogDescription>
                         Visualização detalhada da rota e paradas da corrida.
                     </DialogDescription>
@@ -493,5 +497,3 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: Run | null, isOpen: b
 }
 
 export default HistoryPage;
-
-    
