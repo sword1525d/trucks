@@ -113,17 +113,6 @@ const processRunSegments = (run: Run): Segment[] => {
                 return locTime >= lastDepartureTime.seconds && locTime <= stop.arrivalTime!.seconds;
             })
             .map(loc => [loc.longitude, loc.latitude] as [number, number]);
-
-        if(segmentPath.length > 0 && i > 0) {
-           const prevStop = sortedStops[i-1];
-           const prevStopTime = prevStop.departureTime ? new Date(prevStop.departureTime.seconds * 1000) : null;
-           if(prevStopTime) {
-              const firstPointOfCurrentSegment = sortedLocations.find(l => l.timestamp.seconds >= prevStopTime.getTime() / 1000);
-              if(firstPointOfCurrentSegment) {
-                 segmentPath.unshift([firstPointOfCurrentSegment.longitude, firstPointOfCurrentSegment.latitude]);
-              }
-           }
-        }
         
         segments.push({
             label: `Trajeto para ${stop.name}`,
@@ -135,6 +124,21 @@ const processRunSegments = (run: Run): Segment[] => {
         
         if (stopDepartureTime) {
             lastDepartureTime = stop.departureTime!;
+        } else {
+            // Segmento em andamento (do último ponto de partida até a localização atual)
+            const currentPath = sortedLocations
+                .filter(loc => loc.timestamp.seconds >= lastDepartureTime.seconds)
+                .map(loc => [loc.longitude, loc.latitude] as [number, number]);
+            
+            if (currentPath.length > 0) {
+                 segments.push({
+                    label: `Em direção a ${stop.name}`,
+                    path: currentPath,
+                    color: '#a855f7', // Cor roxa para trajeto atual
+                    travelTime: formatTimeDiff(new Date(lastDepartureTime.seconds * 1000), new Date()),
+                    stopTime: 'N/A',
+                });
+            }
         }
     }
 
@@ -186,15 +190,6 @@ const TrackingPage = () => {
     return () => unsubscribeRuns();
   }, [firestore, user, toast]);
 
-  const handleViewRoute = (runId: string) => {
-      const run = activeRuns.find(r => r.id === runId);
-      if (!run || !run.locationHistory || run.locationHistory.length < 1) {
-          toast({ variant: 'destructive', title: 'Sem dados', description: 'Não há dados de localização suficientes para exibir o trajeto.' });
-          return;
-      }
-      setSelectedRunIdForMap(runId);
-  };
-
   const selectedRunForMap = useMemo(() => {
     if (!selectedRunIdForMap) return null;
     return activeRuns.find(run => run.id === selectedRunIdForMap) || null;
@@ -223,7 +218,7 @@ const TrackingPage = () => {
             </Card>
         ) : (
           <Accordion type="single" collapsible className="w-full space-y-4" defaultValue={activeRuns[0]?.id}>
-            {activeRuns.map(run => <RunAccordionItem key={run.id} run={run} onViewRoute={() => handleViewRoute(run.id)} />)}
+            {activeRuns.map(run => <RunAccordionItem key={run.id} run={run} onViewRoute={() => setSelectedRunIdForMap(run.id)} />)}
           </Accordion>
         )}
       
@@ -350,3 +345,5 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: Run, onViewRoute: () => v
 }
 
 export default TrackingPage;
+
+    

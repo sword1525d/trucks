@@ -47,6 +47,11 @@ const TURNOS = {
     SEGUNDO_ESPECIAL: '2° ESPECIAL'
 };
 
+const SEGMENT_COLORS = [
+    '#3b82f6', '#ef4444', '#10b981', '#f97316', '#8b5cf6', '#ec4899', 
+    '#6366f1', '#f59e0b', '#14b8a6', '#d946ef'
+];
+
 // --- Tipos ---
 type StopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
 
@@ -109,6 +114,50 @@ const RealTimeMap = dynamic(() => import('../RealTimeMap'), {
   loading: () => <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
 });
 
+const formatTimeDiff = (start: Date, end: Date) => {
+    if (!start || !end) return 'N/A';
+    return formatDistanceStrict(end, start, { locale: ptBR, unit: 'minute' });
+}
+
+const processRunSegments = (run: Run): Segment[] => {
+    if (!run.locationHistory || run.locationHistory.length === 0) return [];
+    
+    const sortedLocations = [...run.locationHistory].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+    const sortedStops = [...run.stops].filter(s => s.status !== 'CANCELED').sort((a, b) => (a.arrivalTime?.seconds || 0) - (b.arrivalTime?.seconds || 0));
+
+    const segments: Segment[] = [];
+    let lastDepartureTime = run.startTime;
+
+    for(let i = 0; i < sortedStops.length; i++) {
+        const stop = sortedStops[i];
+        if (!stop.arrivalTime) continue;
+
+        const stopArrivalTime = new Date(stop.arrivalTime.seconds * 1000);
+        const stopDepartureTime = stop.departureTime ? new Date(stop.departureTime.seconds * 1000) : null;
+
+        const segmentPath = sortedLocations
+            .filter(loc => {
+                const locTime = loc.timestamp.seconds;
+                return locTime >= lastDepartureTime.seconds && locTime <= stop.arrivalTime!.seconds;
+            })
+            .map(loc => [loc.longitude, loc.latitude] as [number, number]);
+        
+        segments.push({
+            label: `Trajeto para ${stop.name}`,
+            path: segmentPath,
+            color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
+            travelTime: formatTimeDiff(new Date(lastDepartureTime.seconds * 1000), stopArrivalTime),
+            stopTime: stopDepartureTime ? formatTimeDiff(stopArrivalTime, stopDepartureTime) : 'Em andamento',
+        });
+        
+        if (stopDepartureTime) {
+            lastDepartureTime = stop.departureTime!;
+        }
+    }
+
+    return segments;
+}
+
 const HistoryPage = () => {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -122,7 +171,6 @@ const HistoryPage = () => {
       from: startOfDay(subDays(new Date(), 6)),
       to: endOfDay(new Date()),
     });
-    const [selectedShift, setSelectedShift] = useState<string>(TURNOS.TODOS);
     const [selectedRun, setSelectedRun] = useState<Run | null>(null);
 
     useEffect(() => {
@@ -432,6 +480,9 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: Run | null, isOpen: b
         return format(new Date(timestamp.seconds * 1000), 'HH:mm');
     };
     
+    const mapSegments = processRunSegments(run);
+    const fullLocationHistory = run.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
+    
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl h-[80vh]">
@@ -488,7 +539,11 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: Run | null, isOpen: b
                         </div>
                     </TabsContent>
                     <TabsContent value="map" className="h-[calc(100%-40px)] bg-muted rounded-md">
-                        <RealTimeMap segments={[]} fullLocationHistory={run.locationHistory?.map(p => ({latitude: p.latitude, longitude: p.longitude})) || []} />
+                        <RealTimeMap 
+                            segments={mapSegments} 
+                            fullLocationHistory={fullLocationHistory} 
+                            vehicleId={run.vehicleId}
+                        />
                     </TabsContent>
                 </Tabs>
             </DialogContent>
@@ -497,3 +552,5 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: Run | null, isOpen: b
 }
 
 export default HistoryPage;
+
+    
