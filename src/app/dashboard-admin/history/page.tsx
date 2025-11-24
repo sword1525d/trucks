@@ -167,6 +167,7 @@ const HistoryPage = () => {
     const [allRuns, setAllRuns] = useState<Run[]>([]);
     const [users, setUsers] = useState<Map<string, FirestoreUser>>(new Map());
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedShift, setSelectedShift] = useState<string>(TURNOS.TODOS);
     const [date, setDate] = useState<DateRange | undefined>({
       from: startOfDay(subDays(new Date(), 6)),
       to: endOfDay(new Date()),
