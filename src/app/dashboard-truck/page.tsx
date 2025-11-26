@@ -7,7 +7,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, Fuel, Loader2, PlayCircle } from 'lucide-react';
+import { LogOut, Fuel, Loader2, PlayCircle, ClipboardCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 // Tipos para os dados do Firebase
@@ -204,6 +204,10 @@ export default function DashboardTruckPage() {
             <Button className="w-full h-16 text-lg" onClick={handleStartOrContinueRun}>
                 <PlayCircle className="mr-3 h-6 w-6"/>
                 {activeRunId ? 'Continuar Trajeto' : 'Iniciar Trajeto'}
+            </Button>
+             <Button className="w-full h-16 text-lg" variant="secondary" onClick={() => router.push('/dashboard-truck/checklist')}>
+                <ClipboardCheck className="mr-3 h-6 w-6"/>
+                Checklist Diário
             </Button>
             <Button className="w-full h-16 text-lg" variant="outline" onClick={() => router.push('/dashboard-truck/refuel')}>
                 <Fuel className="mr-3 h-6 w-6"/>

@@ -334,6 +334,50 @@
         "amount",
         "timestamp"
       ]
+    },
+    "Checklist": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Checklist",
+      "type": "object",
+      "description": "Represents a daily vehicle checklist.",
+      "properties": {
+        "vehicleId": {
+          "type": "string",
+          "description": "The ID of the vehicle being checked."
+        },
+        "driverId": {
+          "type": "string",
+          "description": "The ID of the driver performing the check."
+        },
+        "driverName": {
+          "type": "string",
+          "description": "The name of the driver."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of when the checklist was completed."
+        },
+        "items": {
+          "type": "array",
+          "description": "The list of checked items and their status.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "location": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "status": {
+                "type": "string",
+                "enum": ["conforme", "nao_conforme", "na"]
+              }
+            },
+            "required": ["id", "title", "status"]
+          }
+        }
+      },
+      "required": ["vehicleId", "driverId", "driverName", "timestamp", "items"]
     }
   },
   "auth": {
@@ -412,6 +456,16 @@
             "$ref": "#/backend/entities/RefuelRecord"
           },
           "description": "Stores vehicle refuel records within a company and sector."
+        }
+      },
+      {
+        "path": "/companies/{companyId}/sectors/{sectorId}/vehicles/{vehicleId}/checklists/{checklistId}",
+        "definition": {
+          "entityName": "Checklist",
+          "schema": {
+            "$ref": "#/backend/entities/Checklist"
+          },
+          "description": "Stores daily checklists for a specific vehicle."
         }
       }
     ],
