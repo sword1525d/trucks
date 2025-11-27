@@ -11,13 +11,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -26,15 +19,11 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X, Hourglass, EyeOff, Milestone, Maximize, Minimize } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X, Hourglass } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceStrict, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import dynamic from 'next/dynamic';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
-
 
 // --- Tipos ---
 type StopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
@@ -115,108 +104,6 @@ type UserData = {
   sectorId: string;
 };
 
-const RealTimeMap = dynamic(() => import('../RealTimeMap'), {
-  ssr: false,
-  loading: () => <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-});
-
-const SEGMENT_COLORS = [
-    '#3b82f6', '#ef4444', '#10b981', '#f97316', '#8b5cf6', '#ec4899', 
-    '#6366f1', '#f59e0b', '#14b8a6', '#d946ef'
-];
-
-const formatTimeDiff = (start: Date, end: Date) => {
-    if (!start || !end) return 'N/A';
-    return formatDistanceStrict(end, start, { locale: ptBR, unit: 'minute' });
-}
-
-const processRunSegments = (run: AggregatedRun): Segment[] => {
-    if (!run.locationHistory || run.locationHistory.length === 0) return [];
-    
-    const sortedLocations = [...run.locationHistory].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
-    const sortedStops = [...run.stops].filter(s => s.status === 'COMPLETED' || s.status === 'IN_PROGRESS').sort((a, b) => (a.arrivalTime?.seconds || Infinity) - (b.arrivalTime?.seconds || Infinity));
-
-    const segments: Segment[] = [];
-    let lastDepartureTime = run.startTime;
-    let lastMileage = run.startMileage;
-
-    for(let i = 0; i < sortedStops.length; i++) {
-        const stop = sortedStops[i];
-        if (!stop.arrivalTime) continue;
-
-        const stopArrivalTime = new Date(stop.arrivalTime.seconds * 1000);
-        const stopDepartureTime = stop.departureTime ? new Date(stop.departureTime.seconds * 1000) : null;
-        
-        const segmentDistance = (stop.mileageAtStop && lastMileage) ? stop.mileageAtStop - lastMileage : null;
-
-        const segmentPath = sortedLocations
-            .filter(loc => {
-                const locTime = loc.timestamp.seconds;
-                return locTime >= lastDepartureTime.seconds && locTime <= stop.arrivalTime!.seconds;
-            })
-            .map(loc => [loc.longitude, loc.latitude] as [number, number]);
-        
-        // Add the start point of the segment
-        if (i > 0) {
-            const prevStop = sortedStops[i-1];
-            if (prevStop.departureTime) {
-                 const prevDepartureTimeInSeconds = prevStop.departureTime.seconds;
-                 const lastPointOfPrevSegment = sortedLocations.slice().reverse().find(l => l.timestamp.seconds <= prevDepartureTimeInSeconds);
-                 if(lastPointOfPrevSegment) {
-                     segmentPath.unshift([lastPointOfPrevSegment.longitude, lastPointOfPrevSegment.latitude]);
-                 }
-            }
-        } else {
-             const firstPoint = sortedLocations.find(l => l.timestamp.seconds >= run.startTime.seconds);
-             if (firstPoint) {
-                segmentPath.unshift([firstPoint.longitude, firstPoint.latitude]);
-             }
-        }
-        
-        segments.push({
-            id: `segment-${i}`,
-            label: `Trajeto para ${stop.name}`,
-            path: segmentPath,
-            color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
-            travelTime: formatTimeDiff(new Date(lastDepartureTime.seconds * 1000), stopArrivalTime),
-            stopTime: stopDepartureTime ? formatTimeDiff(stopArrivalTime, stopDepartureTime) : 'Em andamento',
-            distance: segmentDistance !== null ? `${segmentDistance.toFixed(1)} km` : undefined
-        });
-        
-        if (stop.departureTime) {
-            lastDepartureTime = stop.departureTime;
-        }
-        if (stop.mileageAtStop) {
-            lastMileage = stop.mileageAtStop;
-        }
-    }
-
-    // Add final segment to current location if run is in progress
-    if (run.status === 'IN_PROGRESS' && sortedLocations.length > 0) {
-        const lastStop = sortedStops[sortedStops.length - 1];
-        if (lastStop && lastStop.departureTime) {
-            const lastDepartureTime = lastStop.departureTime;
-            const finalSegmentPath = sortedLocations
-                .filter(loc => loc.timestamp.seconds >= lastDepartureTime.seconds)
-                .map(loc => [loc.longitude, loc.latitude] as [number, number]);
-
-            if (finalSegmentPath.length > 0) {
-                 segments.push({
-                    id: `segment-current`,
-                    label: `Posição Atual`,
-                    path: finalSegmentPath,
-                    color: '#71717a', // A neutral color
-                    travelTime: formatTimeDiff(new Date(lastDepartureTime.seconds * 1000), new Date()),
-                    stopTime: '',
-                });
-            }
-        }
-    }
-
-
-    return segments;
-}
-
 
 const TrackingPage = () => {
   const { firestore } = useFirebase();
@@ -227,14 +114,6 @@ const TrackingPage = () => {
   const [allRuns, setAllRuns] = useState<Run[]>([]);
   const [users, setUsers] = useState<Map<string, FirestoreUser>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedRunKeyForMap, setSelectedRunKeyForMap] = useState<string | null>(null);
-  const [highlightedSegmentId, setHighlightedSegmentId] = useState<string | null>(null);
-  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -384,31 +263,9 @@ const TrackingPage = () => {
           toast({ variant: 'destructive', title: 'Sem dados', description: 'Não há dados de localização suficientes para exibir o trajeto.' });
           return;
       }
-      setSelectedRunKeyForMap(runKey);
+      // Encode the key to handle special characters in URL
+      router.push(`/dashboard-admin/map-view/${encodeURIComponent(runKey)}`);
   };
-  
-  const handleCloseDialog = () => {
-    setSelectedRunKeyForMap(null);
-    setHighlightedSegmentId(null);
-    setIsMapFullscreen(false);
-  }
-
-  const selectedRunForMap = useMemo(() => {
-    if (!selectedRunKeyForMap) return null;
-    return aggregatedRuns.find(run => run.key === selectedRunKeyForMap) || null;
-  }, [selectedRunKeyForMap, aggregatedRuns]);
-  
-  const displayedSegments = useMemo(() => {
-    if (!selectedRunForMap) return [];
-    const segments = processRunSegments(selectedRunForMap);
-    if (!highlightedSegmentId) return segments.map(s => ({ ...s, opacity: 0.9 }));
-    
-    return segments.map(s => ({
-        ...s,
-        opacity: s.id === highlightedSegmentId ? 1.0 : 0.3,
-    }));
-  }, [selectedRunForMap, highlightedSegmentId]);
-
 
   if (isLoading) {
      return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -433,48 +290,6 @@ const TrackingPage = () => {
           </Accordion>
         )}
       
-      <Dialog open={selectedRunForMap !== null} onOpenChange={(isOpen) => !isOpen && handleCloseDialog()}>
-        <DialogContent className="max-w-[90vw] lg:max-w-7xl w-full h-[90vh] flex flex-col p-0">
-          {isClient && selectedRunForMap && (
-            <>
-              <DialogHeader className="p-6 pb-2 flex-row items-start justify-between">
-                    <div>
-                        <DialogTitle>Acompanhamento da Rota - {selectedRunForMap.driverName} ({selectedRunForMap.vehicleId})</DialogTitle>
-                        <DialogDescription>
-                            Acompanhe a localização em tempo real ou veja o trajeto detalhado da rota.
-                        </DialogDescription>
-                    </div>
-                     <Button variant="ghost" size="icon" onClick={() => setIsMapFullscreen(prev => !prev)}>
-                        {isMapFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
-                        <span className="sr-only">{isMapFullscreen ? 'Restaurar' : 'Tela Cheia'}</span>
-                    </Button>
-                </DialogHeader>
-              <div className={cn("flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 pt-0 min-h-0", isMapFullscreen && "lg:grid-cols-1")}>
-                  <div className={cn("lg:col-span-2 bg-muted rounded-md min-h-[300px] lg:min-h-0", isMapFullscreen && "lg:col-span-1")}>
-                      <RealTimeMap
-                          segments={displayedSegments}
-                          fullLocationHistory={selectedRunForMap.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || []}
-                          vehicleId={selectedRunForMap.vehicleId}
-                      />
-                  </div>
-                  <div className={cn("lg:col-span-1 flex flex-col min-h-0", isMapFullscreen && "hidden")}>
-                      <div className="flex items-center justify-between mb-2">
-                         <h4 className="font-semibold">Detalhes da Rota</h4>
-                         {highlightedSegmentId && (
-                            <Button variant="ghost" size="sm" onClick={() => setHighlightedSegmentId(null)}>
-                                <EyeOff className="mr-2 h-4 w-4"/> Limpar Seleção
-                            </Button>
-                         )}
-                      </div>
-                      <ScrollArea className="flex-1 -mr-6 pr-6">
-                        <RunDetailsContent run={selectedRunForMap} onSegmentClick={setHighlightedSegmentId} highlightedSegmentId={highlightedSegmentId} />
-                      </ScrollArea>
-                  </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
@@ -529,7 +344,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: AggregatedRun, onViewRout
   );
 }
 
-const RunDetailsContent = ({ run, onSegmentClick, highlightedSegmentId }: { run: AggregatedRun, onSegmentClick?: (segmentId: string) => void, highlightedSegmentId?: string | null }) => {
+const RunDetailsContent = ({ run }: { run: AggregatedRun }) => {
     const getStatusInfo = (status: StopStatus) => {
         switch (status) {
         case 'COMPLETED': return { icon: CheckCircle, color: 'text-green-500', label: 'Concluído' };
@@ -540,8 +355,6 @@ const RunDetailsContent = ({ run, onSegmentClick, highlightedSegmentId }: { run:
         }
     };
     
-    let segmentCounter = 0;
-
     return (
         <div className="space-y-2">
           {run.originalRuns.map((originalRun, runIndex) => {
@@ -557,7 +370,6 @@ const RunDetailsContent = ({ run, onSegmentClick, highlightedSegmentId }: { run:
             }
             
             let lastDepartureTime = originalRun.startTime;
-            let lastMileage = originalRun.startMileage;
 
             return (
               <div key={originalRun.id}>
@@ -587,28 +399,14 @@ const RunDetailsContent = ({ run, onSegmentClick, highlightedSegmentId }: { run:
                   const travelTime = arrivalTime ? formatDistanceStrict(new Date(travelStartTime.seconds * 1000), arrivalTime, { locale: ptBR, unit: 'minute'}) : null;
                   const stopTime = arrivalTime && departureTime ? formatDistanceStrict(arrivalTime, departureTime, { locale: ptBR, unit: 'minute'}) : null;
 
-                  const segmentDistance = (stop.mileageAtStop && lastMileage) ? stop.mileageAtStop - lastMileage : null;
-
                   if (stop.departureTime) {
                       lastDepartureTime = stop.departureTime!;
                   }
-                   if (stop.mileageAtStop) {
-                      lastMileage = stop.mileageAtStop;
-                  }
 
-                  const segmentId = stop.status !== 'PENDING' ? `segment-${segmentCounter}` : ``;
-                  if (stop.status !== 'PENDING') segmentCounter++;
-                  
                   return (
                     <div 
                         key={`${originalRun.id}-${stop.name}`} 
-                        className={cn(
-                          "flex items-start gap-4 p-3 rounded-md",
-                          isCompletedStop ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800/20',
-                          onSegmentClick && segmentId && "cursor-pointer hover:bg-muted",
-                          highlightedSegmentId === segmentId && "ring-2 ring-primary"
-                        )}
-                        onClick={() => onSegmentClick && segmentId && onSegmentClick(segmentId)}
+                        className={`flex items-start gap-4 p-3 rounded-md ${isCompletedStop ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800/20'}`}
                     >
                       <Icon className={`h-5 w-5 flex-shrink-0 mt-1 ${color}`} />
                       <div className="flex-1">
@@ -617,7 +415,6 @@ const RunDetailsContent = ({ run, onSegmentClick, highlightedSegmentId }: { run:
                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
                           {travelTime && <span className='flex items-center gap-1'><Route className="h-3 w-3 text-gray-400"/> Viagem: <strong>{travelTime}</strong></span>}
                           {stopTime && <span className='flex items-center gap-1'><Timer className="h-3 w-3 text-gray-400"/> Parada: <strong>{stopTime}</strong></span>}
-                          {segmentDistance !== null && <span className='flex items-center gap-1'><Milestone className="h-3 w-3 text-gray-400"/> Distância: <strong>{segmentDistance.toFixed(1)} km</strong></span>}
                         </div>
                          {stop.observation && (
                             <div className="border-t mt-2 pt-2">

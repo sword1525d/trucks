@@ -11,13 +11,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -25,20 +18,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calendar as CalendarIcon, Route, Truck, User, Clock, Car, Package, Warehouse, Milestone, Hourglass, MapIcon, EyeOff, Maximize, Minimize } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Route, Truck, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { format, subDays, startOfDay, endOfDay, formatDistanceStrict } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
-import dynamic from 'next/dynamic';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
-
 
 // --- Constantes ---
 const TURNOS = {
@@ -48,11 +37,6 @@ const TURNOS = {
     PRIMEIRO_ESPECIAL: '1° ESPECIAL',
     SEGUNDO_ESPECIAL: '2° ESPECIAL'
 };
-
-const SEGMENT_COLORS = [
-    '#3b82f6', '#ef4444', '#10b981', '#f97316', '#8b5cf6', '#ec4899', 
-    '#6366f1', '#f59e0b', '#14b8a6', '#d946ef'
-];
 
 // --- Tipos ---
 type StopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
@@ -131,64 +115,6 @@ type UserData = {
   sectorId: string;
 };
 
-const RealTimeMap = dynamic(() => import('../RealTimeMap'), {
-  ssr: false,
-  loading: () => <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-});
-
-const formatTimeDiff = (start: Date, end: Date) => {
-    if (!start || !end) return 'N/A';
-    return formatDistanceStrict(end, start, { locale: ptBR, unit: 'minute' });
-}
-
-const processRunSegments = (run: AggregatedRun | Run | null, isAggregated: boolean): Segment[] => {
-    if (!run || !run.locationHistory || run.locationHistory.length === 0) return [];
-    
-    const sortedLocations = [...run.locationHistory].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
-    const sortedStops = [...run.stops].filter(s => s.status === 'COMPLETED').sort((a, b) => (a.arrivalTime?.seconds || 0) - (b.arrivalTime?.seconds || 0));
-
-    const segments: Segment[] = [];
-    let lastDepartureTime = run.startTime;
-    const startMileage = isAggregated ? (run as AggregatedRun).startMileage : (run as Run).startMileage;
-    let lastMileage = startMileage;
-
-    for(let i = 0; i < sortedStops.length; i++) {
-        const stop = sortedStops[i];
-        if (!stop.arrivalTime) continue;
-
-        const stopArrivalTime = new Date(stop.arrivalTime.seconds * 1000);
-        const stopDepartureTime = stop.departureTime ? new Date(stop.departureTime.seconds * 1000) : null;
-        
-        const segmentDistance = (stop.mileageAtStop && lastMileage) ? stop.mileageAtStop - lastMileage : null;
-
-        const segmentPath = sortedLocations
-            .filter(loc => {
-                const locTime = loc.timestamp.seconds;
-                return locTime >= lastDepartureTime.seconds && locTime <= stop.arrivalTime!.seconds;
-            })
-            .map(loc => [loc.longitude, loc.latitude] as [number, number]);
-        
-        segments.push({
-            id: `segment-${i}`,
-            label: `Trajeto para ${stop.name}`,
-            path: segmentPath,
-            color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
-            travelTime: formatTimeDiff(new Date(lastDepartureTime.seconds * 1000), stopArrivalTime),
-            stopTime: stopDepartureTime ? formatTimeDiff(stopArrivalTime, stopDepartureTime) : 'Em andamento',
-            distance: segmentDistance !== null ? `${segmentDistance.toFixed(1)} km` : 'N/A'
-        });
-        
-        if (stop.departureTime) {
-            lastDepartureTime = stop.departureTime;
-        }
-        if (stop.mileageAtStop) {
-            lastMileage = stop.mileageAtStop;
-        }
-    }
-
-    return segments;
-}
-
 const HistoryPage = () => {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -203,12 +129,6 @@ const HistoryPage = () => {
       from: startOfDay(subDays(new Date(), 6)),
       to: endOfDay(new Date()),
     });
-    const [selectedRun, setSelectedRun] = useState<AggregatedRun | null>(null);
-    const [isClient, setIsClient] = useState(false);
-
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -363,7 +283,12 @@ const HistoryPage = () => {
     }, [aggregatedRuns]);
 
     const handleViewDetails = (run: AggregatedRun) => {
-        setSelectedRun(run);
+        if (!run.locationHistory || run.locationHistory.length < 1) {
+            toast({ variant: 'destructive', title: 'Sem dados', description: 'Não há dados de localização suficientes para exibir o trajeto.' });
+            return;
+        }
+        // Encode the key to handle special characters in URL
+        router.push(`/dashboard-admin/map-view/${encodeURIComponent(run.key)}`);
     };
 
     if (isLoading || !user) {
@@ -454,8 +379,6 @@ const HistoryPage = () => {
                     </div>}
                 </CardContent>
             </Card>
-
-             <RunDetailsDialog run={selectedRun} isOpen={selectedRun !== null} onClose={() => setSelectedRun(null)} isClient={isClient} />
         </div>
     );
 };
@@ -541,206 +464,6 @@ const ShiftFilter = ({ selectedShift, onShiftChange }: { selectedShift: string, 
         </SelectContent>
     </Select>
 );
-
-
-const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedRun | null, isOpen: boolean, onClose: () => void, isClient: boolean }) => {
-    const [mapRun, setMapRun] = useState<AggregatedRun | Run | null>(null);
-    const [isAggregatedMap, setIsAggregatedMap] = useState<boolean>(true);
-    const [highlightedSegmentId, setHighlightedSegmentId] = useState<string | null>(null);
-    const [isMapFullscreen, setIsMapFullscreen] = useState(false);
-
-
-    useEffect(() => {
-        if (run) {
-            setMapRun(run);
-            setIsAggregatedMap(true);
-        } else {
-            setMapRun(null);
-        }
-        setHighlightedSegmentId(null);
-        setIsMapFullscreen(false);
-    }, [run]);
-    
-    useEffect(() => {
-        if (!isOpen) {
-             if(run) {
-                setMapRun(run);
-                setIsAggregatedMap(true);
-            }
-            setHighlightedSegmentId(null);
-            setIsMapFullscreen(false);
-        }
-    }, [isOpen, run]);
-
-    if (!run) return null;
-
-    const formatFirebaseTime = (timestamp: FirebaseTimestamp | null) => {
-        if (!timestamp) return '--:--';
-        return format(new Date(timestamp.seconds * 1000), 'HH:mm');
-    };
-    
-    const handleViewIndividualRoute = (individualRun: Run) => {
-        setMapRun(individualRun);
-        setIsAggregatedMap(false);
-        setHighlightedSegmentId(null);
-    }
-    
-    const mapSegments = processRunSegments(mapRun, isAggregatedMap);
-    const fullLocationHistory = mapRun?.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
-    
-    const displayedSegments = useMemo(() => {
-        if (!highlightedSegmentId) return mapSegments.map(s => ({ ...s, opacity: 0.9 }));
-        
-        return mapSegments.map(s => ({
-            ...s,
-            opacity: s.id === highlightedSegmentId ? 1.0 : 0.3,
-        }));
-    }, [mapSegments, highlightedSegmentId]);
-    
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-[90vw] lg:max-w-7xl w-full h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-6 pb-2 flex-row items-start justify-between">
-                    <div>
-                        <DialogTitle>Detalhes da Rota - {run.driverName} ({run.vehicleId})</DialogTitle>
-                        <DialogDescription>
-                            Visualização detalhada da rota e paradas da corrida de {run.date} ({run.shift}).
-                        </DialogDescription>
-                    </div>
-                     <Button variant="ghost" size="icon" onClick={() => setIsMapFullscreen(prev => !prev)}>
-                        {isMapFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
-                        <span className="sr-only">{isMapFullscreen ? 'Restaurar' : 'Tela Cheia'}</span>
-                    </Button>
-                </DialogHeader>
-                
-                <div className={cn("flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 pt-0 min-h-0", isMapFullscreen && "lg:grid-cols-1")}>
-                    <div className={cn("lg:col-span-2 bg-muted rounded-md min-h-[300px] lg:min-h-0", isMapFullscreen && "lg:col-span-1")}>
-                        {isClient && (
-                            <RealTimeMap 
-                                segments={displayedSegments} 
-                                fullLocationHistory={fullLocationHistory} 
-                                vehicleId={run.vehicleId}
-                            />
-                        )}
-                    </div>
-                    
-                    <div className={cn("lg:col-span-1 flex flex-col min-h-0", isMapFullscreen && "hidden")}>
-                         <div className="flex items-center justify-between mb-2">
-                             <h4 className="font-semibold">Detalhes da Rota</h4>
-                             <div className="flex items-center gap-2">
-                                {highlightedSegmentId && (
-                                    <Button variant="ghost" size="sm" onClick={() => setHighlightedSegmentId(null)}>
-                                        <EyeOff className="mr-2 h-4 w-4"/> Limpar
-                                    </Button>
-                                )}
-                                <Button variant="outline" size="sm" onClick={() => { setMapRun(run); setIsAggregatedMap(true); setHighlightedSegmentId(null); }}>
-                                    <Route className="mr-2 h-4 w-4"/> Rota Completa
-                                </Button>
-                             </div>
-                         </div>
-                        <ScrollArea className="flex-1 -mr-6 pr-6">
-                            <div className="space-y-4 p-1">
-                                {run.originalRuns.map((originalRun, runIndex) => {
-                                    const previousRun = runIndex > 0 ? run.originalRuns[runIndex - 1] : null;
-                                    let idleTime: string | null = null;
-                                    
-                                    if (previousRun && previousRun.endTime) {
-                                       idleTime = formatDistanceStrict(
-                                           previousRun.endTime.toDate(),
-                                           originalRun.startTime.toDate(),
-                                           { locale: ptBR, unit: 'minute' }
-                                       );
-                                    }
-
-                                    return (
-                                        <div key={originalRun.id}>
-                                            {idleTime && parseFloat(idleTime) > 0 && (
-                                                <div className="flex items-center gap-4 p-3 rounded-md bg-amber-50 dark:bg-amber-900/20 my-2">
-                                                    <Hourglass className="h-6 w-6 flex-shrink-0 text-amber-500" />
-                                                    <div className="flex-1">
-                                                        <p className="font-medium">Tempo Parado</p>
-                                                        <p className="text-xs text-muted-foreground">O veículo ficou parado entre as corridas.</p>
-                                                    </div>
-                                                    <div className="text-right text-sm text-muted-foreground">
-                                                        <p><strong>{idleTime}</strong></p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {originalRun.stops.filter(s => s.status === 'COMPLETED').map((stop, stopIndex) => {
-                                                const globalStopIndex = run.stops.findIndex(s => s.arrivalTime?.seconds === stop.arrivalTime?.seconds);
-                                                const previousStop = globalStopIndex > 0 ? run.stops[globalStopIndex - 1] : null;
-                                                const segmentStartTime = previousStop?.departureTime ?? originalRun.startTime;
-                                                
-                                                const startMileage = previousStop?.mileageAtStop ?? run.startMileage;
-                                                const segmentDistance = (stop.mileageAtStop && startMileage) ? stop.mileageAtStop - startMileage : null;
-                                                
-                                                const segmentId = `segment-${globalStopIndex}`;
-
-                                                return (
-                                                    <Card 
-                                                        key={`${originalRun.id}-${stopIndex}`} 
-                                                        className={cn(
-                                                            "bg-muted/50 mb-2 cursor-pointer transition-all hover:bg-muted",
-                                                            highlightedSegmentId === segmentId && "ring-2 ring-primary bg-muted"
-                                                         )}
-                                                        onClick={() => {
-                                                            setMapRun(run);
-                                                            setIsAggregatedMap(true);
-                                                            setHighlightedSegmentId(segmentId);
-                                                        }}
-                                                    >
-                                                        <CardHeader className="pb-3 flex-row items-center justify-between">
-                                                            <CardTitle className="text-base flex items-center gap-2">
-                                                                <Milestone className="h-5 w-5 text-muted-foreground" />
-                                                                {stop.name}
-                                                            </CardTitle>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleViewIndividualRoute(originalRun); }}>
-                                                              <MapIcon className="h-4 w-4" />
-                                                            </Button>
-                                                        </CardHeader>
-                                                        <CardContent>
-                                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                                                                <div className="flex items-center gap-1">
-                                                                    <Clock className="h-3 w-3 text-muted-foreground" />
-                                                                    <span>{formatFirebaseTime(segmentStartTime)} - {formatFirebaseTime(stop.arrivalTime)}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <Route className="h-3 w-3 text-muted-foreground" />
-                                                                    <span>{segmentDistance !== null ? `${segmentDistance.toFixed(1)} km` : 'N/A'}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <Car className="h-3 w-3 text-muted-foreground" />
-                                                                    <span>Ocup: {stop.collectedOccupiedCars ?? 'N/A'}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <Package className="h-3 w-3 text-muted-foreground" />
-                                                                    <span>Vaz: {stop.collectedEmptyCars ?? 'N/A'}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1 col-span-2">
-                                                                    <Warehouse className="h-3 w-3 text-muted-foreground" />
-                                                                    <span>Lotação: {stop.occupancy ?? 'N/A'}%</span>
-                                                                </div>
-                                                                {stop.observation && (
-                                                                    <div className="col-span-full border-t mt-2 pt-2">
-                                                                        <p className="text-xs text-muted-foreground"><strong>Obs:</strong> {stop.observation}</p>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                )
-                                            })}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </ScrollArea>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
-    )
-}
 
 export default HistoryPage;
 
