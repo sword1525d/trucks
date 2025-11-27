@@ -530,7 +530,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: AggregatedRun, onViewRout
                       </div>
                       {isCompletedStop && (
                         <div className="text-right text-sm text-muted-foreground">
-                            <p>Início no Trajeto: {formatFirebaseTime(stop.arrivalTime)}</p>
+                            <p>Início no Trajeto: {formatFirebaseTime(lastDepartureTime)}</p>
                             <p>Encerramento: {formatFirebaseTime(stop.departureTime)}</p>
                         </div>
                       )}
