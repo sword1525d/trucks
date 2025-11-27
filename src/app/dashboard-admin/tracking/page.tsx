@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
@@ -529,8 +530,8 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: AggregatedRun, onViewRout
                       </div>
                       {isCompletedStop && (
                         <div className="text-right text-sm text-muted-foreground">
-                            <p>Chegada: {formatFirebaseTime(stop.arrivalTime)}</p>
-                            <p>Saída: {formatFirebaseTime(stop.departureTime)}</p>
+                            <p>Início no Trajeto: {formatFirebaseTime(stop.arrivalTime)}</p>
+                            <p>Encerramento: {formatFirebaseTime(stop.departureTime)}</p>
                         </div>
                       )}
                     </div>
