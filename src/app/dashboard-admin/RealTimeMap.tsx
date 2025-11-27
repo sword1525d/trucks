@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Map, { Marker, Source, Layer, MapRef, Popup } from 'react-map-gl';
 import { LngLatBounds } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { type Segment } from './page';
+import { type Segment } from './tracking/page';
 import { Truck, Timer, Route, Milestone } from 'lucide-react';
 import type { LineLayer } from 'react-map-gl';
 import { useFirebase } from '@/firebase';
@@ -14,7 +14,7 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const DEFAULT_ZOOM = 12;
 
 interface RealTimeMapProps {
-  segments?: Segment[];
+  segments?: (Segment & { opacity?: number })[];
   fullLocationHistory: { latitude: number; longitude: number }[];
   vehicleId: string;
 }
@@ -118,15 +118,15 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
         };
 
         const layerStyle: LineLayer = {
-            id: `route-${index}`,
+            id: `route-${segment.id}`,
             type: 'line',
-            source: `route-${index}`,
+            source: `route-${segment.id}`,
             layout: { 'line-join': 'round', 'line-cap': 'round' },
-            paint: { 'line-color': segment.color, 'line-width': 5, 'line-opacity': 0.9 },
+            paint: { 'line-color': segment.color, 'line-width': 5, 'line-opacity': segment.opacity ?? 0.9 },
         };
         
         return (
-            <Source key={index} id={`route-${index}`} type="geojson" data={geojson}>
+            <Source key={segment.id} id={`route-${segment.id}`} type="geojson" data={geojson}>
                 <Layer {...layerStyle} />
             </Source>
         );
@@ -134,13 +134,13 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
 
        {segments && segments.map((segment, index) => segment.path.length > 0 && (
          <Marker
-           key={`marker-${index}`}
+           key={`marker-${segment.id}`}
            longitude={segment.path[0][0]}
            latitude={segment.path[0][1]}
            anchor="center"
            onClick={() => setShowPopup(segment)}
          >
-           <div className="flex items-center justify-center w-6 h-6 rounded-full text-white font-bold text-xs shadow-lg" style={{ backgroundColor: segment.color }}>
+           <div className="flex items-center justify-center w-6 h-6 rounded-full text-white font-bold text-xs shadow-lg" style={{ backgroundColor: segment.color, opacity: segment.opacity ?? 0.9 }}>
              {index + 1}
            </div>
          </Marker>

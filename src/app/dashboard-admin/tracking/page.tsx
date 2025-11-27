@@ -26,13 +26,14 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X, Hourglass } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X, Hourglass, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceStrict, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 
 // --- Tipos ---
@@ -96,12 +97,14 @@ export type FirestoreUser = {
 }
 
 export type Segment = {
+    id: string;
     label: string;
     path: [number, number][];
     color: string;
     travelTime: string;
     stopTime: string;
     distance?: string;
+    opacity?: number;
 }
 
 type UserData = {
@@ -170,6 +173,7 @@ const processRunSegments = (run: AggregatedRun): Segment[] => {
         }
         
         segments.push({
+            id: `segment-${i}`,
             label: `Trajeto para ${stop.name}`,
             path: segmentPath,
             color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
@@ -200,6 +204,7 @@ const TrackingPage = () => {
   const [users, setUsers] = useState<Map<string, FirestoreUser>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRunKeyForMap, setSelectedRunKeyForMap] = useState<string | null>(null);
+  const [highlightedSegmentId, setHighlightedSegmentId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -356,11 +361,27 @@ const TrackingPage = () => {
       }
       setSelectedRunKeyForMap(runKey);
   };
+  
+  const handleCloseDialog = () => {
+    setSelectedRunKeyForMap(null);
+    setHighlightedSegmentId(null);
+  }
 
   const selectedRunForMap = useMemo(() => {
     if (!selectedRunKeyForMap) return null;
     return aggregatedRuns.find(run => run.key === selectedRunKeyForMap) || null;
   }, [selectedRunKeyForMap, aggregatedRuns]);
+  
+  const displayedSegments = useMemo(() => {
+    if (!selectedRunForMap) return [];
+    const segments = processRunSegments(selectedRunForMap);
+    if (!highlightedSegmentId) return segments.map(s => ({ ...s, opacity: 0.9 }));
+    
+    return segments.map(s => ({
+        ...s,
+        opacity: s.id === highlightedSegmentId ? 1.0 : 0.3,
+    }));
+  }, [selectedRunForMap, highlightedSegmentId]);
 
 
   if (isLoading) {
@@ -386,7 +407,7 @@ const TrackingPage = () => {
           </Accordion>
         )}
       
-      <Dialog open={selectedRunForMap !== null} onOpenChange={(isOpen) => !isOpen && setSelectedRunKeyForMap(null)}>
+      <Dialog open={selectedRunForMap !== null} onOpenChange={(isOpen) => !isOpen && handleCloseDialog()}>
         <DialogContent className="max-w-[90vw] lg:max-w-7xl w-full h-[90vh] flex flex-col p-0">
           {isClient && selectedRunForMap && (
             <>
@@ -399,15 +420,22 @@ const TrackingPage = () => {
               <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 pt-2 min-h-0">
                   <div className="lg:col-span-2 bg-muted rounded-md min-h-[300px] lg:min-h-0">
                       <RealTimeMap
-                          segments={processRunSegments(selectedRunForMap)}
+                          segments={displayedSegments}
                           fullLocationHistory={selectedRunForMap.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || []}
                           vehicleId={selectedRunForMap.vehicleId}
                       />
                   </div>
                   <div className="lg:col-span-1 flex flex-col min-h-0">
-                      <h4 className="font-semibold mb-2">Detalhes da Rota</h4>
+                      <div className="flex items-center justify-between mb-2">
+                         <h4 className="font-semibold">Detalhes da Rota</h4>
+                         {highlightedSegmentId && (
+                            <Button variant="ghost" size="sm" onClick={() => setHighlightedSegmentId(null)}>
+                                <EyeOff className="mr-2 h-4 w-4"/> Limpar Seleção
+                            </Button>
+                         )}
+                      </div>
                       <ScrollArea className="flex-1 -mr-6 pr-6">
-                        <RunDetailsContent run={selectedRunForMap} />
+                        <RunDetailsContent run={selectedRunForMap} onSegmentClick={setHighlightedSegmentId} highlightedSegmentId={highlightedSegmentId} />
                       </ScrollArea>
                   </div>
               </div>
@@ -469,7 +497,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: AggregatedRun, onViewRout
   );
 }
 
-const RunDetailsContent = ({ run }: { run: AggregatedRun }) => {
+const RunDetailsContent = ({ run, onSegmentClick, highlightedSegmentId }: { run: AggregatedRun, onSegmentClick?: (segmentId: string) => void, highlightedSegmentId?: string | null }) => {
     const getStatusInfo = (status: StopStatus) => {
         switch (status) {
         case 'COMPLETED': return { icon: CheckCircle, color: 'text-green-500', label: 'Concluído' };
@@ -480,6 +508,8 @@ const RunDetailsContent = ({ run }: { run: AggregatedRun }) => {
         }
     };
     
+    let segmentCounter = 0;
+
     return (
         <div className="space-y-2">
           {run.originalRuns.map((originalRun, runIndex) => {
@@ -510,7 +540,7 @@ const RunDetailsContent = ({ run }: { run: AggregatedRun }) => {
                     </div>
                   </div>
                 )}
-                {originalRun.stops.map((stop, stopIndex) => {
+                {originalRun.stops.map((stop) => {
                   const { icon: Icon, color, label } = getStatusInfo(stop.status);
                   if (stop.status === 'CANCELED') return null;
 
@@ -528,8 +558,20 @@ const RunDetailsContent = ({ run }: { run: AggregatedRun }) => {
                       lastDepartureTime = stop.departureTime!;
                   }
 
+                  const segmentId = stop.status !== 'PENDING' ? `segment-${segmentCounter}` : ``;
+                  if (stop.status !== 'PENDING') segmentCounter++;
+                  
                   return (
-                    <div key={stopIndex} className={`flex items-start gap-4 p-3 rounded-md ${isCompletedStop ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800/20'}`}>
+                    <div 
+                        key={`${originalRun.id}-${stop.name}`} 
+                        className={cn(
+                          "flex items-start gap-4 p-3 rounded-md",
+                          isCompletedStop ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800/20',
+                          onSegmentClick && segmentId && "cursor-pointer hover:bg-muted",
+                          highlightedSegmentId === segmentId && "ring-2 ring-primary"
+                        )}
+                        onClick={() => onSegmentClick && segmentId && onSegmentClick(segmentId)}
+                    >
                       <Icon className={`h-5 w-5 flex-shrink-0 mt-1 ${color}`} />
                       <div className="flex-1">
                         <p className="font-medium">{stop.name}</p>
@@ -550,5 +592,3 @@ const RunDetailsContent = ({ run }: { run: AggregatedRun }) => {
 }
 
 export default TrackingPage;
-
-    

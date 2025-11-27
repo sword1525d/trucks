@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calendar as CalendarIcon, Route, Truck, User, Clock, Car, Package, Warehouse, Milestone, Hourglass, MapIcon } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Route, Truck, User, Clock, Car, Package, Warehouse, Milestone, Hourglass, MapIcon, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -37,6 +37,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import dynamic from 'next/dynamic';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+
 
 // --- Constantes ---
 const TURNOS = {
@@ -112,6 +114,7 @@ export type FirestoreUser = {
 }
 
 export type Segment = {
+    id: string;
     label: string;
     path: [number, number][];
     color: string;
@@ -165,6 +168,7 @@ const processRunSegments = (run: AggregatedRun | Run | null, isAggregated: boole
             .map(loc => [loc.longitude, loc.latitude] as [number, number]);
         
         segments.push({
+            id: `segment-${i}`,
             label: `Trajeto para ${stop.name}`,
             path: segmentPath,
             color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
@@ -541,6 +545,8 @@ const ShiftFilter = ({ selectedShift, onShiftChange }: { selectedShift: string, 
 const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedRun | null, isOpen: boolean, onClose: () => void, isClient: boolean }) => {
     const [mapRun, setMapRun] = useState<AggregatedRun | Run | null>(null);
     const [isAggregatedMap, setIsAggregatedMap] = useState<boolean>(true);
+    const [highlightedSegmentId, setHighlightedSegmentId] = useState<string | null>(null);
+
 
     useEffect(() => {
         if (run) {
@@ -549,15 +555,16 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
         } else {
             setMapRun(null);
         }
+        setHighlightedSegmentId(null);
     }, [run]);
     
     useEffect(() => {
-        // Reset to full route view when dialog is closed
         if (!isOpen) {
              if(run) {
                 setMapRun(run);
                 setIsAggregatedMap(true);
             }
+            setHighlightedSegmentId(null);
         }
     }, [isOpen, run]);
 
@@ -571,10 +578,20 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
     const handleViewIndividualRoute = (individualRun: Run) => {
         setMapRun(individualRun);
         setIsAggregatedMap(false);
+        setHighlightedSegmentId(null);
     }
     
     const mapSegments = processRunSegments(mapRun, isAggregatedMap);
     const fullLocationHistory = mapRun?.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
+    
+    const displayedSegments = useMemo(() => {
+        if (!highlightedSegmentId) return mapSegments.map(s => ({ ...s, opacity: 0.9 }));
+        
+        return mapSegments.map(s => ({
+            ...s,
+            opacity: s.id === highlightedSegmentId ? 1.0 : 0.3,
+        }));
+    }, [mapSegments, highlightedSegmentId]);
     
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -590,7 +607,7 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                     <div className="lg:col-span-2 bg-muted rounded-md min-h-[300px] lg:min-h-0">
                         {isClient && (
                             <RealTimeMap 
-                                segments={mapSegments} 
+                                segments={displayedSegments} 
                                 fullLocationHistory={fullLocationHistory} 
                                 vehicleId={run.vehicleId}
                             />
@@ -600,9 +617,16 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                     <div className="lg:col-span-1 flex flex-col min-h-0">
                          <div className="flex items-center justify-between mb-2">
                              <h4 className="font-semibold">Detalhes da Rota</h4>
-                             <Button variant="outline" size="sm" onClick={() => { setMapRun(run); setIsAggregatedMap(true); }}>
-                                <Route className="mr-2 h-4 w-4"/> Ver Rota Completa
-                            </Button>
+                             <div className="flex items-center gap-2">
+                                {highlightedSegmentId && (
+                                    <Button variant="ghost" size="sm" onClick={() => setHighlightedSegmentId(null)}>
+                                        <EyeOff className="mr-2 h-4 w-4"/> Limpar
+                                    </Button>
+                                )}
+                                <Button variant="outline" size="sm" onClick={() => { setMapRun(run); setIsAggregatedMap(true); setHighlightedSegmentId(null); }}>
+                                    <Route className="mr-2 h-4 w-4"/> Rota Completa
+                                </Button>
+                             </div>
                          </div>
                         <ScrollArea className="flex-1 -mr-6 pr-6">
                             <div className="space-y-4 p-1">
@@ -639,15 +663,28 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                                                 
                                                 const startMileage = previousStop?.mileageAtStop ?? run.startMileage;
                                                 const segmentDistance = stop.mileageAtStop ? stop.mileageAtStop - startMileage : null;
+                                                
+                                                const segmentId = `segment-${globalStopIndex}`;
 
                                                 return (
-                                                    <Card key={`${originalRun.id}-${stopIndex}`} className="bg-muted/50 mb-2">
+                                                    <Card 
+                                                        key={`${originalRun.id}-${stopIndex}`} 
+                                                        className={cn(
+                                                            "bg-muted/50 mb-2 cursor-pointer transition-all hover:bg-muted",
+                                                            highlightedSegmentId === segmentId && "ring-2 ring-primary bg-muted"
+                                                         )}
+                                                        onClick={() => {
+                                                            setMapRun(run);
+                                                            setIsAggregatedMap(true);
+                                                            setHighlightedSegmentId(segmentId);
+                                                        }}
+                                                    >
                                                         <CardHeader className="pb-3 flex-row items-center justify-between">
                                                             <CardTitle className="text-base flex items-center gap-2">
                                                                 <Milestone className="h-5 w-5 text-muted-foreground" />
                                                                 {stop.name}
                                                             </CardTitle>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewIndividualRoute(originalRun)}>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleViewIndividualRoute(originalRun); }}>
                                                               <MapIcon className="h-4 w-4" />
                                                             </Button>
                                                         </CardHeader>
@@ -691,5 +728,3 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
 }
 
 export default HistoryPage;
-
-    
