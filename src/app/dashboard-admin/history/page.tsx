@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calendar as CalendarIcon, Route, Truck, User, Clock, Car, Package, Warehouse, Milestone, Hourglass } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Route, Truck, User, Clock, Car, Package, Warehouse, Milestone, Hourglass, Map } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -137,15 +137,16 @@ const formatTimeDiff = (start: Date, end: Date) => {
     return formatDistanceStrict(end, start, { locale: ptBR, unit: 'minute' });
 }
 
-const processRunSegments = (run: AggregatedRun): Segment[] => {
-    if (!run.locationHistory || run.locationHistory.length === 0) return [];
+const processRunSegments = (run: AggregatedRun | Run | null, isAggregated: boolean): Segment[] => {
+    if (!run || !run.locationHistory || run.locationHistory.length === 0) return [];
     
     const sortedLocations = [...run.locationHistory].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
     const sortedStops = [...run.stops].filter(s => s.status === 'COMPLETED').sort((a, b) => (a.arrivalTime?.seconds || 0) - (b.arrivalTime?.seconds || 0));
 
     const segments: Segment[] = [];
     let lastDepartureTime = run.startTime;
-    let lastMileage = run.startMileage;
+    const startMileage = isAggregated ? (run as AggregatedRun).startMileage : (run as Run).startMileage;
+    let lastMileage = startMileage;
 
     for(let i = 0; i < sortedStops.length; i++) {
         const stop = sortedStops[i];
@@ -538,6 +539,29 @@ const ShiftFilter = ({ selectedShift, onShiftChange }: { selectedShift: string, 
 
 
 const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedRun | null, isOpen: boolean, onClose: () => void, isClient: boolean }) => {
+    const [mapRun, setMapRun] = useState<AggregatedRun | Run | null>(null);
+    const [isAggregatedMap, setIsAggregatedMap] = useState<boolean>(true);
+    const [activeTab, setActiveTab] = useState<string>("details");
+
+    useEffect(() => {
+        if (run) {
+            setMapRun(run);
+            setIsAggregatedMap(true);
+        } else {
+            setMapRun(null);
+        }
+    }, [run]);
+    
+    useEffect(() => {
+        // Reset to full route view when dialog is closed or tab changes to details
+        if (!isOpen || activeTab === "details") {
+            if(run) {
+                setMapRun(run);
+                setIsAggregatedMap(true);
+            }
+        }
+    }, [isOpen, activeTab, run]);
+
     if (!run) return null;
 
     const formatFirebaseTime = (timestamp: FirebaseTimestamp | null) => {
@@ -545,8 +569,14 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
         return format(new Date(timestamp.seconds * 1000), 'HH:mm');
     };
     
-    const mapSegments = processRunSegments(run);
-    const fullLocationHistory = run.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
+    const handleViewIndividualRoute = (individualRun: Run) => {
+        setMapRun(individualRun);
+        setIsAggregatedMap(false);
+        setActiveTab("map");
+    }
+    
+    const mapSegments = processRunSegments(mapRun, isAggregatedMap);
+    const fullLocationHistory = mapRun?.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
     
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -557,10 +587,10 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                         Visualização detalhada da rota e paradas da corrida de {run.date} ({run.shift}).
                     </DialogDescription>
                 </DialogHeader>
-                <Tabs defaultValue="details" className="h-[calc(80vh-100px)]">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="h-[calc(80vh-100px)]">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="details">Detalhes da Rota</TabsTrigger>
-                        <TabsTrigger value="map">Mapa do Trajeto</TabsTrigger>
+                        <TabsTrigger value="map" onClick={() => { setMapRun(run); setIsAggregatedMap(true); }}>Mapa do Trajeto</TabsTrigger>
                     </TabsList>
                     <TabsContent value="details" className="h-[calc(100%-40px)] overflow-y-auto">
                         <div className="space-y-4 p-1">
@@ -578,7 +608,7 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
 
                                 return (
                                     <div key={originalRun.id}>
-                                        {idleTime && (
+                                        {idleTime && parseFloat(idleTime) > 0 && (
                                             <div className="flex items-center gap-4 p-3 rounded-md bg-amber-50 dark:bg-amber-900/20 my-2">
                                                 <Hourglass className="h-6 w-6 flex-shrink-0 text-amber-500" />
                                                 <div className="flex-1">
@@ -591,7 +621,6 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                                             </div>
                                         )}
                                         {originalRun.stops.filter(s => s.status === 'COMPLETED').map((stop, stopIndex) => {
-                                            // Find the previous stop in the entire aggregated run to calculate travel time
                                             const globalStopIndex = run.stops.findIndex(s => s.arrivalTime?.seconds === stop.arrivalTime?.seconds);
                                             const previousStop = globalStopIndex > 0 ? run.stops[globalStopIndex - 1] : null;
                                             const segmentStartTime = previousStop ? previousStop.departureTime : run.startTime;
@@ -601,11 +630,15 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
 
                                             return (
                                                 <Card key={`${originalRun.id}-${stopIndex}`} className="bg-muted/50">
-                                                    <CardHeader className="pb-3">
+                                                    <CardHeader className="pb-3 flex-row items-center justify-between">
                                                         <CardTitle className="text-lg flex items-center gap-2">
                                                             <Milestone className="h-5 w-5 text-muted-foreground" />
                                                             {stop.name}
                                                         </CardTitle>
+                                                        <Button variant="outline" size="sm" onClick={() => handleViewIndividualRoute(originalRun)}>
+                                                          <Map className="h-4 w-4 mr-2" />
+                                                          Ver Trajeto
+                                                        </Button>
                                                     </CardHeader>
                                                     <CardContent>
                                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
@@ -659,4 +692,3 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
 
 export default HistoryPage;
 
-    
