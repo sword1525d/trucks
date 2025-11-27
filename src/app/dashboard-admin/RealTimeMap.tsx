@@ -21,6 +21,7 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
 
   useEffect(() => {
     if (mapRef.current && fullLocationHistory.length > 0) {
+      // If segments are provided, fit the map to the bounds of the entire route.
       if (segments && segments.length > 0) {
         const coordinates = fullLocationHistory.map(p => [p.longitude, p.latitude]) as [number, number][];
         if (coordinates.length === 0) return;
@@ -33,7 +34,9 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
           padding: 80,
           duration: 1000,
         });
-      } else {
+      } 
+      // If no segments, it's real-time tracking. Fly to the latest position.
+      else {
         const lastPosition = fullLocationHistory[fullLocationHistory.length - 1];
         if (lastPosition) {
            mapRef.current.flyTo({
@@ -44,6 +47,7 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
         }
       }
     }
+  // The dependency array ensures this effect runs when the view type (segments vs. no segments) changes.
   }, [segments, fullLocationHistory]);
 
 

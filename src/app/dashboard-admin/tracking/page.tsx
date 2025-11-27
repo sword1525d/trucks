@@ -23,6 +23,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -155,7 +156,7 @@ const processRunSegments = (run: AggregatedRun): Segment[] => {
             const prevStop = sortedStops[i-1];
             if (prevStop.departureTime) {
                  const prevDepartureTimeInSeconds = prevStop.departureTime.seconds;
-                 const lastPointOfPrevSegment = sortedLocations.reverse().find(l => l.timestamp.seconds <= prevDepartureTimeInSeconds);
+                 const lastPointOfPrevSegment = sortedLocations.slice().reverse().find(l => l.timestamp.seconds <= prevDepartureTimeInSeconds);
                  if(lastPointOfPrevSegment) {
                      segmentPath.unshift([lastPointOfPrevSegment.longitude, lastPointOfPrevSegment.latitude]);
                  }
@@ -390,20 +391,32 @@ const TrackingPage = () => {
       <Dialog open={selectedRunForMap !== null} onOpenChange={(isOpen) => !isOpen && setSelectedRunIdForMap(null)}>
         <DialogContent className="max-w-4xl h-[80vh]">
           {isClient && selectedRunForMap && (
-             <>
-              <DialogHeader>
-                <DialogTitle>Trajeto - {selectedRunForMap.driverName} ({selectedRunForMap.vehicleId})</DialogTitle>
-                <DialogDescription>
-                  Visualização do trajeto da rota, segmentado por paradas.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="h-[calc(80vh-100px)] bg-muted rounded-md">
-                  <RealTimeMap 
-                      segments={mapSegments}
-                      fullLocationHistory={fullLocationHistory} 
-                      vehicleId={selectedRunForMap.vehicleId}
-                  />
-              </div>
+            <>
+                <DialogHeader>
+                    <DialogTitle>Acompanhamento da Rota - {selectedRunForMap.driverName} ({selectedRunForMap.vehicleId})</DialogTitle>
+                    <DialogDescription>
+                        Acompanhe a localização em tempo real ou veja o trajeto detalhado da rota.
+                    </DialogDescription>
+                </DialogHeader>
+                <Tabs defaultValue="location" className="h-[calc(80vh-120px)]">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="location">Localização Atual</TabsTrigger>
+                        <TabsTrigger value="route">Trajeto Detalhado</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="location" className="h-[calc(100%-40px)] bg-muted rounded-md">
+                        <RealTimeMap
+                            fullLocationHistory={fullLocationHistory}
+                            vehicleId={selectedRunForMap.vehicleId}
+                        />
+                    </TabsContent>
+                    <TabsContent value="route" className="h-[calc(100%-40px)] bg-muted rounded-md">
+                        <RealTimeMap
+                            segments={mapSegments}
+                            fullLocationHistory={fullLocationHistory}
+                            vehicleId={selectedRunForMap.vehicleId}
+                        />
+                    </TabsContent>
+                </Tabs>
             </>
           )}
         </DialogContent>
@@ -464,7 +477,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: AggregatedRun, onViewRout
           <div className="flex justify-between items-center mb-2">
             <h4 className="font-semibold">Detalhes da Rota</h4>
              <Button variant="outline" size="sm" onClick={onViewRoute}>
-                <Route className="mr-2 h-4 w-4"/> Ver Trajeto
+                <Route className="mr-2 h-4 w-4"/> Ver Acompanhamento
             </Button>
           </div>
           {run.stops.map((stop, index) => {
