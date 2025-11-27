@@ -26,7 +26,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X, Hourglass, EyeOff } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, Route, Timer, X, Hourglass, EyeOff, Milestone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceStrict, isToday } from 'date-fns';
@@ -525,6 +525,7 @@ const RunDetailsContent = ({ run, onSegmentClick, highlightedSegmentId }: { run:
             }
             
             let lastDepartureTime = originalRun.startTime;
+            let lastMileage = originalRun.startMileage;
 
             return (
               <div key={originalRun.id}>
@@ -554,8 +555,13 @@ const RunDetailsContent = ({ run, onSegmentClick, highlightedSegmentId }: { run:
                   const travelTime = arrivalTime ? formatDistanceStrict(new Date(travelStartTime.seconds * 1000), arrivalTime, { locale: ptBR, unit: 'minute'}) : null;
                   const stopTime = arrivalTime && departureTime ? formatDistanceStrict(arrivalTime, departureTime, { locale: ptBR, unit: 'minute'}) : null;
 
+                  const segmentDistance = (stop.mileageAtStop && lastMileage) ? stop.mileageAtStop - lastMileage : null;
+
                   if (stop.departureTime) {
                       lastDepartureTime = stop.departureTime!;
+                  }
+                   if (stop.mileageAtStop) {
+                      lastMileage = stop.mileageAtStop;
                   }
 
                   const segmentId = stop.status !== 'PENDING' ? `segment-${segmentCounter}` : ``;
@@ -579,6 +585,7 @@ const RunDetailsContent = ({ run, onSegmentClick, highlightedSegmentId }: { run:
                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
                           {travelTime && <span className='flex items-center gap-1'><Route className="h-3 w-3 text-gray-400"/> Viagem: <strong>{travelTime}</strong></span>}
                           {stopTime && <span className='flex items-center gap-1'><Timer className="h-3 w-3 text-gray-400"/> Parada: <strong>{stopTime}</strong></span>}
+                          {segmentDistance !== null && <span className='flex items-center gap-1'><Milestone className="h-3 w-3 text-gray-400"/> Distância: <strong>{segmentDistance.toFixed(1)} km</strong></span>}
                       </div>
                       </div>
                     </div>
