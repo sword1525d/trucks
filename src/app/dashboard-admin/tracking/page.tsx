@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
@@ -91,54 +90,6 @@ const formatTimeDiff = (start: Date, end: Date) => {
     return formatDistanceStrict(end, start, { locale: ptBR, unit: 'minute' });
 }
 
-const processRunSegments = (run: Run): Segment[] => {
-    if (!run.locationHistory || run.locationHistory.length === 0) return [];
-    
-    const sortedLocations = [...run.locationHistory].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
-    const sortedStops = [...run.stops].filter(s => s.status !== 'CANCELED').sort((a, b) => (a.arrivalTime?.seconds || 0) - (b.arrivalTime?.seconds || 0));
-
-    const segments: Segment[] = [];
-    let lastDepartureTime = run.startTime;
-
-    for(let i = 0; i < sortedStops.length; i++) {
-        const stop = sortedStops[i];
-        if (!stop.arrivalTime) continue;
-
-        const stopArrivalTime = new Date(stop.arrivalTime.seconds * 1000);
-        const stopDepartureTime = stop.departureTime ? new Date(stop.departureTime.seconds * 1000) : null;
-
-        const segmentPath = sortedLocations
-            .filter(loc => {
-                const locTime = loc.timestamp.seconds;
-                return locTime > lastDepartureTime.seconds && locTime <= stop.arrivalTime!.seconds;
-            })
-            .map(loc => [loc.longitude, loc.latitude] as [number, number]);
-
-        // Find the location point closest to the start of the segment
-        const lastDepartureLocation = sortedLocations
-            .filter(loc => loc.timestamp.seconds <= lastDepartureTime.seconds)
-            .pop();
-            
-        if(lastDepartureLocation) {
-            segmentPath.unshift([lastDepartureLocation.longitude, lastDepartureLocation.latitude]);
-        }
-        
-        segments.push({
-            label: `Trajeto para ${stop.name}`,
-            path: segmentPath,
-            color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
-            travelTime: formatTimeDiff(new Date(lastDepartureTime.seconds * 1000), stopArrivalTime),
-            stopTime: stopDepartureTime ? formatTimeDiff(stopArrivalTime, stopDepartureTime) : 'Em andamento',
-        });
-        
-        if (stop.departureTime) {
-            lastDepartureTime = stop.departureTime;
-        }
-    }
-
-    return segments;
-}
-
 const TrackingPage = () => {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -208,7 +159,6 @@ const TrackingPage = () => {
      return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const mapSegments = selectedRunForMap ? processRunSegments(selectedRunForMap) : [];
   const fullLocationHistory = selectedRunForMap?.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
 
   return (
@@ -235,14 +185,13 @@ const TrackingPage = () => {
           {isClient && selectedRunForMap && (
              <>
               <DialogHeader>
-                <DialogTitle>Trajeto da Corrida - {selectedRunForMap.driverName} ({selectedRunForMap.vehicleId})</DialogTitle>
+                <DialogTitle>Localização - {selectedRunForMap.driverName} ({selectedRunForMap.vehicleId})</DialogTitle>
                 <DialogDescription>
-                  Visualização do trajeto completo da corrida, segmentado por paradas.
+                  Visualização da localização atual do veículo.
                 </DialogDescription>
               </DialogHeader>
               <div className="h-[calc(80vh-100px)] bg-muted rounded-md">
                   <RealTimeMap 
-                      segments={mapSegments} 
                       fullLocationHistory={fullLocationHistory} 
                       vehicleId={selectedRunForMap.vehicleId}
                   />
@@ -306,7 +255,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: Run, onViewRoute: () => v
           <div className="flex justify-between items-center mb-2">
             <h4 className="font-semibold">Detalhes da Rota</h4>
              <Button variant="outline" size="sm" onClick={onViewRoute}>
-                <Route className="mr-2 h-4 w-4"/> Ver Trajeto Detalhado
+                <Route className="mr-2 h-4 w-4"/> Ver Localização
             </Button>
           </div>
           {run.stops.map((stop, index) => {

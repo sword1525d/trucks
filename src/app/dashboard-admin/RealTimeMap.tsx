@@ -10,7 +10,7 @@ import type { LineLayer } from 'react-map-gl';
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 interface RealTimeMapProps {
-  segments: Segment[];
+  segments?: Segment[];
   fullLocationHistory: { latitude: number; longitude: number }[];
   vehicleId: string;
 }
@@ -21,17 +21,28 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
 
   useEffect(() => {
     if (mapRef.current && fullLocationHistory.length > 0) {
-      const coordinates = fullLocationHistory.map(p => [p.longitude, p.latitude]) as [number, number][];
-      if (coordinates.length === 0) return;
+      if (segments && segments.length > 0) {
+        const coordinates = fullLocationHistory.map(p => [p.longitude, p.latitude]) as [number, number][];
+        if (coordinates.length === 0) return;
 
-      const bounds = new LngLatBounds(coordinates[0], coordinates[0]);
-      for (const coord of coordinates) {
-        bounds.extend(coord);
+        const bounds = new LngLatBounds(coordinates[0], coordinates[0]);
+        for (const coord of coordinates) {
+          bounds.extend(coord);
+        }
+        mapRef.current.fitBounds(bounds, {
+          padding: 80,
+          duration: 1000,
+        });
+      } else {
+        const lastPosition = fullLocationHistory[fullLocationHistory.length - 1];
+        if (lastPosition) {
+           mapRef.current.flyTo({
+            center: [lastPosition.longitude, lastPosition.latitude],
+            zoom: 15,
+            duration: 1000,
+          });
+        }
       }
-      mapRef.current.fitBounds(bounds, {
-        padding: 80,
-        duration: 1000,
-      });
     }
   }, [segments, fullLocationHistory]);
 
@@ -46,7 +57,7 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
     );
   }
 
-  if (segments.length === 0 && fullLocationHistory.length === 0) {
+  if (fullLocationHistory.length === 0) {
     return (
       <div className="flex items-center justify-center h-full bg-muted rounded-lg">
         <p className="text-muted-foreground">Sem dados de localização para exibir.</p>
@@ -54,7 +65,7 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
     );
   }
 
-  const lastPosition = fullLocationHistory.length > 0 ? fullLocationHistory[fullLocationHistory.length - 1] : null;
+  const lastPosition = fullLocationHistory[fullLocationHistory.length - 1];
 
   return (
     <Map
@@ -68,7 +79,7 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
       mapStyle="mapbox://styles/mapbox/streets-v12"
       mapboxAccessToken={MAPBOX_TOKEN}
     >
-      {segments.map((segment, index) => {
+      {segments && segments.map((segment, index) => {
          const geojson = {
           type: 'Feature' as const,
           properties: {},
@@ -93,7 +104,7 @@ const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapPr
         );
       })}
 
-       {segments.map((segment, index) => segment.path.length > 0 && (
+       {segments && segments.map((segment, index) => segment.path.length > 0 && (
          <Marker
            key={`marker-${index}`}
            longitude={segment.path[0][0]}
