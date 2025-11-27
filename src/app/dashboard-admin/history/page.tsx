@@ -578,7 +578,7 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
     
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-[90vw] lg:max-w-[80vw] w-full h-[90vh] flex flex-col p-0">
+            <DialogContent className="max-w-[90vw] lg:max-w-7xl w-full h-[90vh] flex flex-col p-0">
                 <DialogHeader className="p-6 pb-0">
                     <DialogTitle>Detalhes da Rota - {run.driverName} ({run.vehicleId})</DialogTitle>
                     <DialogDescription>
@@ -586,8 +586,8 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                     </DialogDescription>
                 </DialogHeader>
                 
-                <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 p-6 pt-2 min-h-0">
-                    <div className="lg:col-span-2 bg-muted rounded-md min-h-[300px] lg:min-h-0 order-last lg:order-first">
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 pt-2 min-h-0">
+                    <div className="lg:col-span-2 bg-muted rounded-md min-h-[300px] lg:min-h-0">
                         {isClient && (
                             <RealTimeMap 
                                 segments={mapSegments} 
@@ -597,7 +597,7 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                         )}
                     </div>
                     
-                    <div className="lg:col-span-1 flex flex-col min-h-[250px] lg:min-h-0">
+                    <div className="lg:col-span-1 flex flex-col min-h-0">
                          <div className="flex items-center justify-between mb-2">
                              <h4 className="font-semibold">Detalhes da Rota</h4>
                              <Button variant="outline" size="sm" onClick={() => { setMapRun(run); setIsAggregatedMap(true); }}>
@@ -611,17 +611,11 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                                     let idleTime: string | null = null;
                                     
                                     if (previousRun && previousRun.endTime) {
-                                       const lastStopOfPreviousRun = previousRun.stops
-                                            .filter(s => s.status === 'COMPLETED' && s.arrivalTime)
-                                            .sort((a,b) => b.arrivalTime!.seconds - a.arrivalTime!.seconds)[0];
-
-                                        if(lastStopOfPreviousRun && lastStopOfPreviousRun.arrivalTime) {
-                                            idleTime = formatDistanceStrict(
-                                                lastStopOfPreviousRun.arrivalTime.toDate(),
-                                                originalRun.startTime.toDate(),
-                                                { locale: ptBR, unit: 'minute' }
-                                            );
-                                        }
+                                       idleTime = formatDistanceStrict(
+                                           previousRun.endTime.toDate(),
+                                           originalRun.startTime.toDate(),
+                                           { locale: ptBR, unit: 'minute' }
+                                       );
                                     }
 
                                     return (
@@ -697,3 +691,5 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
 }
 
 export default HistoryPage;
+
+    
