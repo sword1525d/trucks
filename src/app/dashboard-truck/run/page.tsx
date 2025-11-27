@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -34,10 +35,63 @@ type Vehicle = {
 type StopPoint = string;
 
 const PREDEFINED_STOP_POINTS: StopPoint[] = [
-  "PINT. ABS", "PINT. FX ABS", "MOCOM", "INJ. PLÁSTICA", "PINT. PÓ", "USINAGEM", "PINT. TANQUE", "PINT. ALUMÍNIO",
-  "MONT. RODA", "SOLDA CHASSI", "DIV. PEÇAS", "GALVANOPLASTIA", "DOBRADETUBOS", "ESTAM. PRENSA", "MONT. MOTOR", "SOLDA ESCAP.",
-  "LINHA MONT.", "PINT. ALT. TEMP.", "SOLDA TANQUE", "FUNDIÇÃO", "SOLDA COMP.", "FÁBR. ASSENTO", "MONT. QUADRI.", "MONT. FILTRO",
-  "SOLDA ALUMÍNIO", "FABRICA DE ARO", "MOCOMMSIN1", "PRENSA. COMP."
+  "PINTURA ABS",
+  "DIVISÃO PEÇAS",
+  "ARO",
+  "PINT ALUMÍNIO",
+  "LINHA FUN",
+  "USINAGEM",
+  "MOCOM 2",
+  "POLIMENTO",
+  "ESTOQUE F",
+  "PINTURA SPC",
+  "FUNDIÇÃO",
+  "INJEÇÃO PLÁSTICA",
+  "MOCOM 4",
+  "MONT RODA",
+  "SINTERIZAÇÃO",
+  "LINHA 2",
+  "JUTAI",
+  "PINTURA PO",
+  "PINT TANQUE",
+  "PINT ALTA TEMP",
+  "SOLDA TANQUE",
+  "PINTURA FAIXA",
+  "CX DE ASSESORIO",
+  "HDA 1",
+  "MOCOM MOTOR",
+  "PINT ESCAPAMENTO",
+  "LINHA 4",
+  "GALVANOPLASTIA",
+  "PRENSA 1",
+  "MOCOM 1",
+  "HDA 2",
+  "MOCOM 5",
+  "POWER TRAIN",
+  "MOCOM ABS",
+  "NACIONAL",
+  "IMPORTADO",
+  "SOLDA GARFO",
+  "DEPOSITO F",
+  "FAB ASSENTO 2",
+  "SOLDA COMPONENTE",
+  "DEPOSITO D",
+  "MOTOR",
+  "HCA",
+  "FAB ASSENTO",
+  "SOLDA ESCAPAMENTO",
+  "MOCOM 3",
+  "SOLDA CHASSI",
+  "FAB TUBO",
+  "LM ATV",
+  "FAIXA ABS",
+  "FILTRO",
+  "KABEL",
+  "ESTAMPARIA",
+  "MONT LINHA FAN",
+  "PINTURA ABS 2",
+  "MOCOM MOTOR 2",
+  "MANUTENÇÃO"
 ];
 
 export default function TruckRunPage() {
