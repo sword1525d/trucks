@@ -388,7 +388,7 @@ const TrackingPage = () => {
         )}
       
       <Dialog open={selectedRunForMap !== null} onOpenChange={(isOpen) => !isOpen && setSelectedRunIdForMap(null)}>
-        <DialogContent className="max-w-4xl h-[80vh]">
+        <DialogContent className="max-w-[90vw] w-full h-[90vh]">
           {isClient && selectedRunForMap && (
             <>
                 <DialogHeader>
@@ -397,18 +397,18 @@ const TrackingPage = () => {
                         Acompanhe a localização em tempo real ou veja o trajeto detalhado da rota.
                     </DialogDescription>
                 </DialogHeader>
-                <Tabs defaultValue="location" className="h-[calc(80vh-120px)]">
+                <Tabs defaultValue="location" className="h-full flex flex-col">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="location">Localização Atual</TabsTrigger>
                         <TabsTrigger value="route">Trajeto Detalhado</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="location" className="h-[calc(100%-40px)] bg-muted rounded-md">
+                    <TabsContent value="location" className="flex-1 bg-muted rounded-md mt-2">
                         <RealTimeMap
                             fullLocationHistory={fullLocationHistory}
                             vehicleId={selectedRunForMap.vehicleId}
                         />
                     </TabsContent>
-                    <TabsContent value="route" className="h-[calc(100%-40px)] bg-muted rounded-md">
+                    <TabsContent value="route" className="flex-1 bg-muted rounded-md mt-2">
                         <RealTimeMap
                             segments={mapSegments}
                             fullLocationHistory={fullLocationHistory}
@@ -481,7 +481,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: AggregatedRun, onViewRout
             const previousRun = runIndex > 0 ? run.originalRuns[runIndex - 1] : null;
             let idleTime: string | null = null;
 
-            if (previousRun) {
+            if (previousRun && previousRun.endTime) {
                 const lastStopOfPreviousRun = previousRun.stops
                     .filter(s => s.status === 'COMPLETED' && s.arrivalTime)
                     .sort((a, b) => b.arrivalTime!.seconds - a.arrivalTime!.seconds)[0];
@@ -499,7 +499,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: AggregatedRun, onViewRout
 
             return (
               <div key={originalRun.id}>
-                {idleTime && (
+                {idleTime && parseFloat(idleTime) > 0 && (
                   <div className="flex items-center gap-4 p-3 rounded-md bg-amber-50 dark:bg-amber-900/20 my-2">
                     <Hourglass className="h-6 w-6 flex-shrink-0 text-amber-500" />
                     <div className="flex-1">
@@ -542,7 +542,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: AggregatedRun, onViewRout
                       </div>
                       {isCompletedStop && (
                         <div className="text-right text-sm text-muted-foreground">
-                            <p>Início no trajeto: {formatFirebaseTime(travelStartTime)}</p>
+                            <p>Início do Trajeto: {formatFirebaseTime(travelStartTime)}</p>
                             <p>Encerramento: {formatFirebaseTime(stop.arrivalTime)}</p>
                         </div>
                       )}

@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calendar as CalendarIcon, Route, Truck, User, Clock, Car, Package, Warehouse, Milestone, Hourglass, Map as MapIcon } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Route, Truck, User, Clock, Car, Package, Warehouse, Milestone, Hourglass, MapIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -580,20 +580,20 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
     
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl h-[80vh]">
+            <DialogContent className="max-w-[90vw] w-full h-[90vh]">
                 <DialogHeader>
                     <DialogTitle>Detalhes da Rota - {run.driverName} ({run.vehicleId})</DialogTitle>
                     <DialogDescription>
                         Visualização detalhada da rota e paradas da corrida de {run.date} ({run.shift}).
                     </DialogDescription>
                 </DialogHeader>
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="h-[calc(80vh-100px)]">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="details">Detalhes da Rota</TabsTrigger>
                         <TabsTrigger value="map" onClick={() => { setMapRun(run); setIsAggregatedMap(true); }}>Mapa do Trajeto</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="details" className="h-[calc(100%-40px)] overflow-y-auto">
-                        <div className="space-y-4 p-1">
+                    <TabsContent value="details" className="flex-1 overflow-y-auto">
+                        <div className="space-y-4 p-1 mt-2">
                             {run.originalRuns.map((originalRun, runIndex) => {
                                 const previousRun = runIndex > 0 ? run.originalRuns[runIndex - 1] : null;
                                 let idleTime: string | null = null;
@@ -623,7 +623,7 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                                         {originalRun.stops.filter(s => s.status === 'COMPLETED').map((stop, stopIndex) => {
                                             const globalStopIndex = run.stops.findIndex(s => s.arrivalTime?.seconds === stop.arrivalTime?.seconds);
                                             const previousStop = globalStopIndex > 0 ? run.stops[globalStopIndex - 1] : null;
-                                            const segmentStartTime = previousStop ? previousStop.departureTime : run.startTime;
+                                            const segmentStartTime = previousStop?.departureTime ?? originalRun.startTime;
                                             
                                             const startMileage = previousStop?.mileageAtStop ?? run.startMileage;
                                             const segmentDistance = stop.mileageAtStop ? stop.mileageAtStop - startMileage : null;
@@ -675,7 +675,7 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
                             })}
                         </div>
                     </TabsContent>
-                    <TabsContent value="map" className="h-[calc(100%-40px)] bg-muted rounded-md">
+                    <TabsContent value="map" className="flex-1 bg-muted rounded-md mt-2">
                         {isClient && (
                             <RealTimeMap 
                                 segments={mapSegments} 
@@ -691,4 +691,3 @@ const RunDetailsDialog = ({ run, isOpen, onClose, isClient }: { run: AggregatedR
 }
 
 export default HistoryPage;
-
