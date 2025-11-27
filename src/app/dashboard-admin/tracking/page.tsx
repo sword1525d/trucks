@@ -480,9 +480,21 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: AggregatedRun, onViewRout
           </div>
           {run.originalRuns.map((originalRun, runIndex) => {
             const previousRun = runIndex > 0 ? run.originalRuns[runIndex - 1] : null;
-            const idleTime = previousRun && previousRun.endTime
-              ? formatDistanceStrict(previousRun.endTime.toDate(), originalRun.startTime.toDate(), { locale: ptBR, unit: 'minute' })
-              : null;
+            let idleTime: string | null = null;
+
+            if (previousRun) {
+                const lastStopOfPreviousRun = previousRun.stops
+                    .filter(s => s.status === 'COMPLETED' && s.arrivalTime)
+                    .sort((a, b) => b.arrivalTime!.seconds - a.arrivalTime!.seconds)[0];
+
+                if (lastStopOfPreviousRun && lastStopOfPreviousRun.arrivalTime) {
+                    idleTime = formatDistanceStrict(
+                        lastStopOfPreviousRun.arrivalTime.toDate(),
+                        originalRun.startTime.toDate(),
+                        { locale: ptBR, unit: 'minute' }
+                    );
+                }
+            }
             
             let lastDepartureTime = originalRun.startTime;
 
