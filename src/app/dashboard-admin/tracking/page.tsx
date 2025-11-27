@@ -61,6 +61,15 @@ export type Run = {
   locationHistory?: LocationPoint[];
 };
 
+export type Segment = {
+    label: string;
+    path: [number, number][];
+    color: string;
+    travelTime: string;
+    stopTime: string;
+    distance?: string;
+}
+
 type UserData = {
   name: string;
   isAdmin: boolean;
@@ -72,6 +81,71 @@ const RealTimeMap = dynamic(() => import('../RealTimeMap'), {
   ssr: false,
   loading: () => <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
 });
+
+const SEGMENT_COLORS = [
+    '#3b82f6', '#ef4444', '#10b981', '#f97316', '#8b5cf6', '#ec4899', 
+    '#6366f1', '#f59e0b', '#14b8a6', '#d946ef'
+];
+
+const formatTimeDiff = (start: Date, end: Date) => {
+    if (!start || !end) return 'N/A';
+    return formatDistanceStrict(end, start, { locale: ptBR, unit: 'minute' });
+}
+
+const processRunSegments = (run: Run): Segment[] => {
+    if (!run.locationHistory || run.locationHistory.length === 0) return [];
+    
+    const sortedLocations = [...run.locationHistory].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
+    const sortedStops = [...run.stops].filter(s => s.status !== 'CANCELED').sort((a, b) => (a.arrivalTime?.seconds || 0) - (b.arrivalTime?.seconds || 0));
+
+    const segments: Segment[] = [];
+    let lastDepartureTime = run.startTime;
+
+    for(let i = 0; i < sortedStops.length; i++) {
+        const stop = sortedStops[i];
+        if (!stop.arrivalTime) continue;
+
+        const stopArrivalTime = new Date(stop.arrivalTime.seconds * 1000);
+        const stopDepartureTime = stop.departureTime ? new Date(stop.departureTime.seconds * 1000) : null;
+
+        const segmentPath = sortedLocations
+            .filter(loc => {
+                const locTime = loc.timestamp.seconds;
+                return locTime >= lastDepartureTime.seconds && locTime <= stop.arrivalTime!.seconds;
+            })
+            .map(loc => [loc.longitude, loc.latitude] as [number, number]);
+        
+        if (i > 0) {
+            const prevStop = sortedStops[i-1];
+            if (prevStop.departureTime) {
+                const prevDepartureTimeInSeconds = prevStop.departureTime.seconds;
+                const lastPointOfPrevSegment = sortedLocations.find(l => l.timestamp.seconds <= prevDepartureTimeInSeconds);
+                if (lastPointOfPrevSegment) {
+                     segmentPath.unshift([lastPointOfPrevSegment.longitude, lastPointOfPrevSegment.latitude]);
+                }
+            }
+        } else {
+             const firstPoint = sortedLocations.find(l => l.timestamp.seconds >= run.startTime.seconds);
+             if (firstPoint) {
+                segmentPath.unshift([firstPoint.longitude, firstPoint.latitude]);
+             }
+        }
+        
+        segments.push({
+            label: `Trajeto para ${stop.name}`,
+            path: segmentPath,
+            color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
+            travelTime: formatTimeDiff(new Date(lastDepartureTime.seconds * 1000), stopArrivalTime),
+            stopTime: stopDepartureTime ? formatTimeDiff(stopArrivalTime, stopDepartureTime) : 'Em andamento',
+        });
+        
+        if (stop.departureTime) {
+            lastDepartureTime = stop.departureTime!;
+        }
+    }
+
+    return segments;
+}
 
 
 const TrackingPage = () => {
@@ -146,7 +220,20 @@ const TrackingPage = () => {
         handleSnapshots(inProgressRuns, completedRuns);
     }, (error) => {
         console.error("Error fetching completed runs: ", error);
-        toast({ variant: 'destructive', title: 'Erro ao buscar corridas concluídas' });
+        // This query can fail if the index is not created. We'll filter on the client.
+        if (error.code === 'failed-precondition') {
+          console.warn("Firestore index for completed runs query is not created. Filtering on the client.");
+          const allRunsQuery = query(runsCol);
+          const unsubscribeAll = onSnapshot(allRunsQuery, (allDocsSnapshot) => {
+            const allDocs = allDocsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as Run}));
+            inProgressRuns = allDocs.filter(r => r.status === 'IN_PROGRESS');
+            completedRuns = allDocs.filter(r => r.status === 'COMPLETED');
+            handleSnapshots(inProgressRuns, completedRuns);
+          });
+          return () => unsubscribeAll();
+        } else {
+          toast({ variant: 'destructive', title: 'Erro ao buscar corridas concluídas' });
+        }
         setIsLoading(false);
     });
 
@@ -174,7 +261,8 @@ const TrackingPage = () => {
   if (isLoading) {
      return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
-
+  
+  const mapSegments = selectedRunForMap ? processRunSegments(selectedRunForMap) : [];
   const fullLocationHistory = selectedRunForMap?.locationHistory?.map(p => ({ latitude: p.latitude, longitude: p.longitude })) || [];
 
   return (
@@ -201,13 +289,14 @@ const TrackingPage = () => {
           {isClient && selectedRunForMap && (
              <>
               <DialogHeader>
-                <DialogTitle>Localização - {selectedRunForMap.driverName} ({selectedRunForMap.vehicleId})</DialogTitle>
+                <DialogTitle>Trajeto - {selectedRunForMap.driverName} ({selectedRunForMap.vehicleId})</DialogTitle>
                 <DialogDescription>
-                  Visualização da localização atual do veículo.
+                  Visualização do trajeto da corrida, segmentado por paradas.
                 </DialogDescription>
               </DialogHeader>
               <div className="h-[calc(80vh-100px)] bg-muted rounded-md">
                   <RealTimeMap 
+                      segments={mapSegments}
                       fullLocationHistory={fullLocationHistory} 
                       vehicleId={selectedRunForMap.vehicleId}
                   />
@@ -272,7 +361,7 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: Run, onViewRoute: () => v
           <div className="flex justify-between items-center mb-2">
             <h4 className="font-semibold">Detalhes da Rota</h4>
              <Button variant="outline" size="sm" onClick={onViewRoute}>
-                <Route className="mr-2 h-4 w-4"/> Ver Localização
+                <Route className="mr-2 h-4 w-4"/> Ver Trajeto
             </Button>
           </div>
           {run.stops.map((stop, index) => {
